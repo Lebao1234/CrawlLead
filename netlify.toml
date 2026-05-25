@@ -1,3 +1,2 @@
 [build]
-  base = "web-app"
   publish = "web-app"
