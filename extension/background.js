@@ -9,6 +9,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const url = msg.url;
 
     chrome.tabs.create({ url, active: false }, (tab) => {
+      if (!tab) return;
       const tabId = tab.id;
       let isResponded = false;
 
