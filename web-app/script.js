@@ -1,4 +1,4 @@
-const API = () => document.getElementById("settingBackend")?.value || "https://leadfinder.up.railway.app";
+const API = () => document.getElementById("settingBackend")?.value || "https://leadfinder-backend-mtk5.onrender.com";
 let allLeads = [];
 let searchQuery = "";
 let refreshTimer = null;

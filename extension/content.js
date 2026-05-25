@@ -1,4 +1,4 @@
-const BACKEND_URL = "https://leadfinder.up.railway.app";
+const BACKEND_URL = "https://leadfinder-backend-mtk5.onrender.com";
 
 function extractProfileFromPage() {
   const getText = (...selectors) => {
