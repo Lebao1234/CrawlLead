@@ -1,107 +1,193 @@
-🔍 LeadFinder — Full Stack Setup
-Tool tự động crawl leads từ LinkedIn, gồm Chrome Extension + Flask API + Web Dashboard.
+<div align="center">
 
-🌐 Demo
-Web Dashboard + API: https://leadfinder-backend-mtk5.onrender.com
-🛠 Tech Stack
-Extension: Chrome Extension (Vanilla JS)
-Backend: Python Flask + Gunicorn
-Frontend: HTML/CSS/JS thuần
-Deploy: Render (Full stack)
-Cấu trúc dự án
+# 🔍 LeadFinder
+
+**Tự động crawl leads từ LinkedIn — Chrome Extension + Flask API + Web Dashboard**
+---
+
+## ✨ Tính năng
+
+- 🤖 **Auto-crawl** profiles LinkedIn chỉ với 1 click
+- 📋 **Crawl hàng loạt** từ trang Search Results
+- 📊 **Dashboard realtime** — tự cập nhật mỗi 5 giây
+- 📤 **Export CSV** toàn bộ leads
+- 🔍 **Duplicate detection** theo email + LinkedIn URL
+- ✅ **Verify leads** trực tiếp trên dashboard
+- 🐳 **Docker-ready** cho deploy production
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Công nghệ |
+|---|---|
+| Chrome Extension | Vanilla JS |
+| Backend | Python Flask + Gunicorn |
+| Frontend | HTML / CSS / JS thuần |
+| Deploy | Render (Full Stack) |
+
+---
+
+## 📁 Cấu trúc dự án
+
+```
 leadfinder/
-├── backend/          ← Flask API (Python)
+├── backend/                ← Flask API (Python)
 │   ├── app.py
 │   ├── requirements.txt
-│   └── leads.json    ← tự tạo khi chạy
+│   └── leads.json          ← tự tạo khi chạy
 │
-├── web-app/          ← Dashboard (HTML thuần, không cần build)
+├── web-app/                ← Dashboard (HTML thuần)
 │   └── index.html
 │
-└── extension/        ← Chrome Extension
+└── extension/              ← Chrome Extension
     ├── manifest.json
-    ├── content.js    ← inject vào LinkedIn
+    ├── content.js          ← inject vào LinkedIn
     ├── popup.html
     ├── popup.js
     └── background.js
-Bước 1 — Chạy Backend (Flask)
+```
+
+---
+
+## 🚀 Cài đặt & Chạy
+
+### Bước 1 — Backend (Flask)
+
+```bash
 cd backend
 
-# Tạo virtual env (khuyến nghị)
+# Tạo virtual environment
 python -m venv venv
 source venv/bin/activate        # Mac/Linux
-venv\Scripts\activate           # Windows
+# venv\Scripts\activate         # Windows
 
 # Cài packages
 pip install -r requirements.txt
 
 # Chạy server
 python app.py
-Server sẽ chạy tại: http://localhost:5000
+```
 
-Bước 2 — Mở Web App (Dashboard)
-Cách 1 — Double click web-app/index.html để mở trong browser.
+> Server chạy tại: **http://localhost:5000**
 
-Cách 2 — Dùng Live Server (VS Code extension) để tự reload.
+---
 
-Cách 3 — Python simple server:
+### Bước 2 — Web Dashboard
 
+Có 3 cách mở dashboard:
+
+```bash
+# Cách 1 — Double click
+open web-app/index.html
+
+# Cách 2 — Python simple server
 cd web-app
 python -m http.server 3000
-# Mở http://localhost:3000
-🐳 Bước X — Chạy Bằng Docker (Dành Cho Team/Server)
-Nếu bạn muốn treo hệ thống chạy 24/7 trên Server hoặc máy tính công ty mà không cần cài Python thủ công, bạn có thể dùng Docker:
+# → Mở http://localhost:3000
 
-# Đảm bảo bạn đã cài Docker và Docker Compose trên máy
-# Chỉ cần đứng ở thư mục gốc của dự án (chứa file docker-compose.yml) và chạy:
+# Cách 3 — VS Code Live Server extension (tự reload)
+```
+
+---
+
+### Bước 3 — Chrome Extension
+
+1. Mở Chrome → truy cập `chrome://extensions/`
+2. Bật **Developer mode** (góc trên phải)
+3. Nhấn **Load unpacked**
+4. Chọn thư mục `extension/`
+5. Icon **LeadFinder** xuất hiện trên toolbar ✅
+
+---
+
+### 🐳 Bước X — Docker (Dành cho Team / Server)
+
+> Chạy toàn bộ stack 24/7 mà không cần cài Python thủ công.
+
+```bash
+# Đứng tại thư mục gốc của dự án
 docker-compose up -d --build
-Lệnh trên sẽ:
+```
 
-Chạy Backend (Gunicorn + Flask) ở cổng 5000. Dữ liệu leads.json được cấu hình lưu vào Volume nên sẽ không bị mất kể cả khi bạn tắt Docker.
-Chạy Dashboard (Nginx) ở cổng 3000.
-Truy cập Dashboard: http://localhost:3000 Truy cập Backend API: http://localhost:5000
+| Service | URL |
+|---|---|
+| 🖥 Dashboard (Nginx) | http://localhost:3000 |
+| ⚙️ Backend API (Gunicorn) | http://localhost:5000 |
 
-Bước 3 — Cài Chrome Extension
-Mở Chrome → địa chỉ: chrome://extensions/
-Bật Developer mode (góc trên phải)
-Nhấn Load unpacked
-Chọn thư mục extension/
-Extension LeadFinder xuất hiện trên toolbar
-Cách dùng Extension
-Crawl 1 profile:
-Vào trang LinkedIn của ai đó: linkedin.com/in/username
-Nhấn icon LeadFinder → "Crawl this page"
-Hoặc nhấn nút nổi "Crawl this page" ở góc phải màn hình
-Crawl danh sách (Search results):
-Vào linkedin.com/search/results/people/...
-Nhấn icon LeadFinder → "Crawl this page"
-Tool sẽ lấy tất cả profiles hiển thị trên trang
-Xem data:
-Mở Dashboard → data tự cập nhật mỗi 5 giây
-Nhấn Export CSV để tải file
-API Endpoints
-Method	URL	Mô tả
-GET	/api/leads	Lấy tất cả leads
-POST	/api/leads	Thêm lead(s) mới
-DELETE	/api/leads/:id	Xóa lead
-POST	/api/leads/:id/verify	Verify lead
-POST	/api/leads/clear	Xóa tất cả
-GET	/api/export/csv	Download CSV
-GET	/api/stats	Thống kê
-Lưu ý quan trọng
-CORS: Backend đã bật CORS cho tất cả origins (dev mode)
-LinkedIn rate limit: Không crawl quá nhanh, tránh bị block
-Data: Lưu trong backend/leads.json, backup thường xuyên
-Duplicate detection: Dựa vào email + LinkedIn URL
-Troubleshooting
-Extension không gửi được data:
+> 💾 Dữ liệu `leads.json` được lưu vào **Docker Volume** — không mất khi tắt container.
 
-Kiểm tra Flask đang chạy: http://localhost:5000/api/stats
-Kiểm tra Console của Extension (F12 trên popup)
-LinkedIn không cho crawl:
+---
 
-LinkedIn thay đổi HTML selectors thường xuyên
-Cập nhật selectors trong content.js nếu cần
-CORS error:
+## 🎯 Cách dùng Extension
 
-Đảm bảo flask-cors đã cài: pip install flask-cors
+**Crawl 1 profile:**
+1. Vào trang LinkedIn của ai đó: `linkedin.com/in/username`
+2. Nhấn icon LeadFinder → **"Crawl this page"**
+3. Hoặc nhấn nút nổi ở góc phải màn hình
+
+**Crawl danh sách (Search Results):**
+1. Vào `linkedin.com/search/results/people/...`
+2. Nhấn icon LeadFinder → **"Crawl this page"**
+3. Tool tự động lấy tất cả profiles hiển thị trên trang
+
+**Xem data:**
+- Mở Dashboard → data tự cập nhật mỗi 5 giây
+- Nhấn **Export CSV** để tải file
+
+---
+
+## 📡 API Endpoints
+
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| `GET` | `/api/leads` | Lấy tất cả leads |
+| `POST` | `/api/leads` | Thêm lead(s) mới |
+| `DELETE` | `/api/leads/:id` | Xóa lead |
+| `POST` | `/api/leads/:id/verify` | Verify lead |
+| `POST` | `/api/leads/clear` | Xóa tất cả |
+| `GET` | `/api/export/csv` | Download CSV |
+| `GET` | `/api/stats` | Thống kê tổng quan |
+
+---
+
+## ⚠️ Lưu ý quan trọng
+
+- **CORS**: Backend đã bật CORS cho tất cả origins (chỉ dùng ở dev)
+- **LinkedIn rate limit**: Không crawl quá nhanh — tránh bị block tài khoản
+- **Backup data**: Dữ liệu lưu trong `backend/leads.json`, nên backup thường xuyên
+- **Duplicate detection**: Tự động phát hiện trùng theo email + LinkedIn URL
+
+---
+
+## 🔧 Troubleshooting
+
+<details>
+<summary><b>Extension không gửi được data</b></summary>
+
+- Kiểm tra Flask đang chạy: http://localhost:5000/api/stats
+- Mở Console của Extension (F12 trên popup) để xem lỗi
+</details>
+
+<details>
+<summary><b>LinkedIn không cho crawl / data trống</b></summary>
+
+- LinkedIn thay đổi HTML selectors thường xuyên
+- Kiểm tra và cập nhật selectors trong `extension/content.js`
+</details>
+
+<details>
+<summary><b>CORS error khi gọi API</b></summary>
+
+```bash
+pip install flask-cors
+```
+
+Đảm bảo `flask-cors` đã được cài và import đúng trong `app.py`.
+</details>
+
+---
+
+## 📄 License
+
+MIT © LeadFinder
