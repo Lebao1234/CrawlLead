@@ -1,5 +1,5 @@
 // Lấy URL của Backend API từ ô cài đặt (hoặc dùng mặc định nếu trống)
-const API = () => document.getElementById("settingBackend")?.value || "https://leadfinder-ybvo.onrender.com";
+const API = () => document.getElementById("settingBackend")?.value || "https://crawllead.onrender.com";
 let allLeads = [];
 let searchQuery = "";
 let refreshTimer = null;

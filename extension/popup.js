@@ -1,4 +1,4 @@
-const BACKEND = "https://leadfinder-ybvo.onrender.com";
+const BACKEND = "https://crawllead.onrender.com";
 
 // Kiểm tra xem Backend Server có đang chạy không bằng cách gọi API /api/stats
 async function checkBackend() {

@@ -1,4 +1,4 @@
-const BACKEND_URL = "https://leadfinder-ybvo.onrender.com";
+const BACKEND_URL = "https://crawllead.onrender.com";
 
 /**
  * Hàm lấy thông tin của một người dùng từ trang Profile LinkedIn (ví dụ: Tên, Chức vụ, Công ty...)
