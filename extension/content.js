@@ -424,7 +424,7 @@ async function crawlProfile() {
   let lead = extractProfileFromPage();
   
   // Nếu đang ở trang phụ (ví dụ /details/) thì báo lỗi luôn và dừng
-  if ((!lead.name || lead.name.length < 2) && window.location.href.split("/in/")[1]?.includes("/")) {
+  if ((!lead.name || lead.name.length < 2) && window.location.href.split("/in/")[1]?.replace(/\/$/, "")?.includes("/")) {
     inner.textContent = "❌ Hãy về trang chính của Profile!";
     setTimeout(() => { inner.textContent = "🔍 Crawl this page"; isCrawling = false; }, 3500);
     return;
