@@ -1,4 +1,4 @@
-const BACKEND_URL = "https://leadfinder-backend-mtk5.onrender.com";
+const BACKEND_URL = "https://leadfinder-ybvo.onrender.com";
 
 function extractProfileFromPage() {
   const getText = (...selectors) => {
@@ -386,29 +386,47 @@ function injectFloatingButton() {
 }
 
 async function crawlProfile() {
+  isCrawling = true; // Cho phép bấm nút lần nữa để Dừng
   const inner = document.getElementById("lf-inner");
   inner.textContent = "⏳ Đang xử lý...";
   
   let lead = extractProfileFromPage();
   
-  // Nếu Tên bị trống (do chuyển trang nhanh quá web chưa kịp load DOM)
-  // thì đợi 1 giây rồi thử lấy lại
-  if (!lead.name || lead.name.length < 2) {
-    await new Promise(r => setTimeout(r, 1000));
-    lead = extractProfileFromPage();
-  }
-
-  // Chặn gửi data rác/trống lên server
-  if (!lead.name || lead.name.length < 2) {
-    inner.textContent = "❌ Chờ trang web load xong đã!";
-    setTimeout(() => { inner.textContent = "🔍 Crawl this page"; }, 3000);
+  // Nếu đang ở trang phụ (ví dụ /details/) thì báo lỗi luôn và dừng
+  if ((!lead.name || lead.name.length < 2) && window.location.href.split("/in/")[1]?.includes("/")) {
+    inner.textContent = "❌ Hãy về trang chính của Profile!";
+    setTimeout(() => { inner.textContent = "🔍 Crawl this page"; isCrawling = false; }, 3500);
     return;
   }
 
+  // Nếu tên chưa tải xong, chuyển trạng thái sang Chờ và lặp tối đa 30 giây
+  if (!lead.name || lead.name.length < 2) {
+    inner.textContent = "⏳ Đang chờ web load...";
+  }
+  
+  let retries = 0;
+  while ((!lead.name || lead.name.length < 2) && retries < 100) {
+    if (!isCrawling) return; // Thoát ngay nếu người dùng bấm dừng
+    await new Promise(r => setTimeout(r, 300));
+    lead = extractProfileFromPage();
+    retries++;
+  }
+
+  // Nếu chờ 30 giây vẫn thất bại
+  if (!lead.name || lead.name.length < 2) {
+    inner.textContent = "❌ Lỗi: Web load quá lâu!";
+    setTimeout(() => { inner.textContent = "🔍 Crawl this page"; isCrawling = false; }, 3500);
+    return;
+  }
+
+  inner.textContent = "⏳ Đang lấy contact...";
   if (!lead.email) lead.email = await getEmailFromContactInfo();
+  
+  if (!isCrawling) return; // Kiểm tra lại lỡ user bấm dừng
+
   const result = await sendLeads([lead]);
   inner.textContent = result ? `✓ Đã lưu: ${lead.name}` : "❌ Backend offline";
-  setTimeout(() => { inner.textContent = "🔍 Crawl this page"; }, 4000);
+  setTimeout(() => { inner.textContent = "🔍 Crawl this page"; isCrawling = false; }, 4000);
 }
 
 async function crawlSearch(withEmail) {

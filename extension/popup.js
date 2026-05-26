@@ -1,4 +1,4 @@
-const BACKEND = "http://localhost:5000";
+const BACKEND = "https://leadfinder-ybvo.onrender.com";
 
 async function checkBackend() {
   try {
@@ -63,8 +63,10 @@ document.getElementById("crawlBtn").addEventListener("click", async () => {
     }
 
     const r = response.result;
-    if (action === "crawl_profile") {
-      resultBox.innerHTML = `<span style="color:#22c55e">✓ Saved:</span> ${response.lead?.name || "Lead"}<br><span style="color:#7a8099;font-size:11px">${response.lead?.title} @ ${response.lead?.company}</span>`;
+    if (!r) {
+      resultBox.innerHTML = `<span style="color:#ef4444">❌ Backend unreachable or error saving.</span>`;
+    } else if (action === "crawl_profile") {
+      resultBox.innerHTML = `<span style="color:#22c55e">✓ Saved:</span> ${response.lead?.name || "Lead"}<br><span style="color:#7a8099;font-size:11px">${response.lead?.position} @ ${response.lead?.company}</span>`;
     } else {
       resultBox.innerHTML = `<span style="color:#22c55e">✓ ${r?.added || 0} leads added</span><br><span style="color:#f59e0b;font-size:11px">${r?.duplicates || 0} duplicates skipped</span>`;
     }
