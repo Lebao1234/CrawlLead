@@ -1,4 +1,6 @@
-// Background service worker — xử lý mở tab profile để lấy email
+// Background service worker — Chạy ngầm trong trình duyệt.
+// Nhiệm vụ chính: Mở các tab Profile ở dạng chạy ngầm (ẩn) để lấy thông tin email
+// cho chức năng "Crawl đầy đủ" (Crawl danh sách với tuỳ chọn có email).
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log("[LeadFinder] Extension installed");
@@ -8,6 +10,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === "open_profile_get_email") {
     const url = msg.url;
 
+    // Tạo một tab mới với url truyền vào, active: false để không làm phiền người dùng
     chrome.tabs.create({ url, active: false }, (tab) => {
       const tabId = tab.id;
       let isResponded = false;
@@ -23,6 +26,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
            return;
         }
         
+        // Gửi lệnh "extract_profile_email" cho content script của tab ẩn này để bắt đầu quét HTML
         chrome.tabs.sendMessage(tabId, { action: "extract_profile_email" }, (response) => {
           if (chrome.runtime.lastError || !response) {
              // Lỗi do đang redirect hoặc content chưa load xong -> thử lại

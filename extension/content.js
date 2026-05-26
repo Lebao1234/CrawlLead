@@ -1,5 +1,9 @@
 const BACKEND_URL = "https://leadfinder-ybvo.onrender.com";
 
+/**
+ * Hàm lấy thông tin của một người dùng từ trang Profile LinkedIn (ví dụ: Tên, Chức vụ, Công ty...)
+ * Hàm này dùng các selector HTML (CSS Selector) để bóc tách dữ liệu từ cấu trúc web LinkedIn.
+ */
 function extractProfileFromPage() {
   const getText = (...selectors) => {
     for (const sel of selectors) {
@@ -129,6 +133,10 @@ if (company === "Chưa có" && position) {
   return { name, position, company, location, email, linkedin_url };
 }
 
+/**
+ * Hàm mở phần "Contact Info" (Thông tin liên hệ) trên Profile LinkedIn để lấy email.
+ * Vì email thường bị ẩn, hàm này giả lập thao tác click mở popup rồi quét text bên trong.
+ */
 async function getEmailFromContactInfo() {
   try {
     const contactBtn = document.querySelector("a[href*='overlay/contact-info'], a[id*='contact-info']");
@@ -159,6 +167,10 @@ async function getEmailFromContactInfo() {
   } catch(e) { return ""; }
 }
 
+/**
+ * Hàm phân tích văn bản (text) quét được từ trang tìm kiếm (Search Results)
+ * và trích xuất ra Tên, Chức vụ, Vị trí.
+ */
 function parseLeadFromText(raw, linkedin_url) {
   const lines = raw.split("\n").map(l => l.trim()).filter(l => l.length > 0);
   if (!lines.length) return null;
@@ -227,6 +239,10 @@ function parseLeadFromText(raw, linkedin_url) {
   return { name, position, company: "", location, email: "", linkedin_url };
 }
 
+/**
+ * Hàm lặp qua tất cả kết quả hiển thị trên trang tìm kiếm (LinkedIn Search)
+ * và thu thập thông tin của từng người.
+ */
 function extractSearchResults() {
   const results = [];
   const seen = new Set();
@@ -252,6 +268,9 @@ function extractSearchResults() {
   return results;
 }
 
+/**
+ * Hàm gửi dữ liệu leads thu thập được (dạng JSON) lên Backend API.
+ */
 async function sendLeads(leads) {
   try {
     const res = await fetch(`${BACKEND_URL}/api/leads`, {
@@ -266,6 +285,10 @@ async function sendLeads(leads) {
   }
 }
 
+/**
+ * Lắng nghe thông điệp (messages) từ popup hoặc background script.
+ * Ví dụ khi bấm nút trên popup, popup sẽ gửi message "crawl_profile" để kích hoạt code này.
+ */
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === "crawl_profile") {
     (async () => {
@@ -323,6 +346,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 let isCrawling = false;
 
+/**
+ * Hàm này tự động thêm một nút (floating button) "Crawl this page" nổi ở góc dưới bên phải màn hình.
+ * Khi click vào sẽ tự động thu thập data trang hiện tại.
+ */
 function injectFloatingButton() {
   if (document.getElementById("lf-float-btn")) return;
   const wrap = document.createElement("div");
@@ -385,6 +412,10 @@ function injectFloatingButton() {
   });
 }
 
+/**
+ * Thực thi lệnh Crawl trên trang Profile cá nhân.
+ * Cố gắng lấy thông tin cơ bản + Email, sau đó đẩy lên backend.
+ */
 async function crawlProfile() {
   isCrawling = true; // Cho phép bấm nút lần nữa để Dừng
   const inner = document.getElementById("lf-inner");
@@ -429,6 +460,10 @@ async function crawlProfile() {
   setTimeout(() => { inner.textContent = "🔍 Crawl this page"; isCrawling = false; }, 4000);
 }
 
+/**
+ * Thực thi lệnh Crawl trên trang Tìm kiếm.
+ * Nếu chọn withEmail = true, tool sẽ mở ngầm (background) từng profile để lấy email, do đó sẽ chậm hơn.
+ */
 async function crawlSearch(withEmail) {
   isCrawling = true;
   const inner = document.getElementById("lf-inner");

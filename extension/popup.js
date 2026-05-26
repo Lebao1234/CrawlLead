@@ -1,5 +1,6 @@
 const BACKEND = "https://leadfinder-ybvo.onrender.com";
 
+// Kiểm tra xem Backend Server có đang chạy không bằng cách gọi API /api/stats
 async function checkBackend() {
   try {
     const res = await fetch(`${BACKEND}/api/stats`, { signal: AbortSignal.timeout(2000) });
@@ -20,6 +21,7 @@ async function getActiveTab() {
   return tab;
 }
 
+// Phân tích đường dẫn (URL) hiện tại xem nó là loại trang nào của LinkedIn
 function getPageType(url) {
   if (!url) return "Unknown";
   if (url.includes("linkedin.com/in/")) return "Profile";
@@ -29,6 +31,7 @@ function getPageType(url) {
   return "Not LinkedIn";
 }
 
+// Khởi tạo popup khi người dùng vừa bấm vào icon Extension
 async function init() {
   const online = await checkBackend();
   const tab = await getActiveTab();
@@ -42,6 +45,7 @@ async function init() {
   document.getElementById("crawlBtn").disabled = !canCrawl;
 }
 
+// Lắng nghe sự kiện click vào nút "Crawl this page"
 document.getElementById("crawlBtn").addEventListener("click", async () => {
   const btn = document.getElementById("crawlBtn");
   const resultBox = document.getElementById("resultBox");
@@ -53,6 +57,7 @@ document.getElementById("crawlBtn").addEventListener("click", async () => {
 
   const action = pageType === "Profile" ? "crawl_profile" : "crawl_search";
 
+  // Gửi lệnh "crawl_profile" hoặc "crawl_search" cho content.js đang chạy trên tab hiện tại
   chrome.tabs.sendMessage(tab.id, { action }, (response) => {
     if (chrome.runtime.lastError || !response) {
       resultBox.innerHTML = `<span style="color:#ef4444">❌ Could not connect to page. Refresh LinkedIn and try again.</span>`;

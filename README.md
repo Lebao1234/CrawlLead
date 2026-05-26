@@ -1,5 +1,3 @@
-<div align="center">
-
 # 🔍 LeadFinder
 
 **Tự động crawl leads từ LinkedIn — Chrome Extension + Flask API + Web Dashboard**
@@ -28,25 +26,53 @@
 
 ---
 
-## 📁 Cấu trúc dự án
+## 📁 Cấu trúc dự án & Giải thích code
 
-```
+Dưới đây là cấu trúc thư mục kèm theo giải thích chi tiết chức năng của từng file để bạn dễ dàng nắm bắt:
+
+```text
 leadfinder/
-├── backend/                ← Flask API (Python)
-│   ├── app.py
-│   ├── requirements.txt
-│   └── leads.json          ← tự tạo khi chạy
+├── backend/                ← API Server xử lý dữ liệu (Python/Flask)
+│   ├── app.py              ← (QUAN TRỌNG) File chính chứa toàn bộ logic API (thêm/sửa/xóa/lấy leads)
+│   ├── requirements.txt    ← Danh sách thư viện Python cần cài đặt
+│   └── leads.json          ← Nơi lưu trữ dữ liệu leads dạng JSON (Tự động sinh ra khi có data)
 │
-├── web-app/                ← Dashboard (HTML thuần)
-│   └── index.html
+├── web-app/                ← Giao diện Dashboard quản lý leads
+│   └── index.html          ← Trang giao diện chính, chứa cả HTML, CSS và JS để gọi API lên backend
 │
-└── extension/              ← Chrome Extension
-    ├── manifest.json
-    ├── content.js          ← inject vào LinkedIn
-    ├── popup.html
-    ├── popup.js
-    └── background.js
+└── extension/              ← Mã nguồn của Chrome Extension
+    ├── manifest.json       ← File cấu hình bắt buộc của Extension (định nghĩa tên, quyền hạn, file chạy)
+    ├── content.js          ← (QUAN TRỌNG) File được tiêm (inject) thẳng vào trang LinkedIn để quét và lấy HTML/data
+    ├── popup.html          ← Giao diện hiển thị khi click vào icon extension trên trình duyệt
+    ├── popup.js            ← Logic xử lý cho popup (ví dụ: bắt sự kiện click nút "Crawl")
+    └── background.js       ← Chạy ngầm trong extension, lắng nghe và giao tiếp giữa content script và API
 ```
+
+---
+
+## 🧠 Hướng dẫn đọc hiểu code nhanh nhất
+
+Để nhanh chóng hiểu luồng hoạt động của toàn bộ hệ thống, bạn hãy đọc code theo thứ tự sau:
+
+### 1. Luồng Lấy Dữ Liệu (Extension)
+*   **Bắt đầu từ `extension/content.js`**: Đây là trái tim của việc thu thập dữ liệu. Hãy xem cách các hàm tìm kiếm các selector HTML của LinkedIn (ví dụ: lấy tên, chức danh, công ty, link).
+*   **Xem qua `extension/popup.js`**: File này chỉ đơn giản là gọi lệnh gửi thông điệp (message) đến `content.js` để yêu cầu bắt đầu crawl khi user bấm nút.
+*   **Xem `extension/background.js` (nếu có logic gọi API)**: Thường extension sẽ lấy data từ `content.js`, sau đó `background.js` hoặc chính `content.js` sẽ gọi lệnh `fetch()` để gửi HTTP POST request chứa dữ liệu lên Backend.
+
+### 2. Luồng Xử Lý Dữ Liệu (Backend)
+*   **Mở `backend/app.py`**:
+    *   Tìm route `POST /api/leads`: Đây là nơi nhận dữ liệu từ Extension gửi sang. Xem cách nó kiểm tra trùng lặp (duplicate) và lưu vào file `leads.json`.
+    *   Tìm route `GET /api/leads`: Đây là nơi trả về danh sách leads cho Dashboard hiển thị.
+    *   *Lưu ý:* Backend sử dụng danh sách/dictionary lưu trong bộ nhớ và ghi ra file `leads.json` để mô phỏng Database.
+
+### 3. Luồng Hiển Thị Dữ Liệu (Web Dashboard)
+*   **Mở `web-app/index.html`**:
+    *   Cuộn xuống phần `<script>` ở cuối file (nếu JS viết chung, hoặc file JS riêng nếu có).
+    *   Tìm hàm `fetchLeads()` hoặc các hàm gọi API: Bạn sẽ thấy nó gọi lệnh `fetch('http://localhost:5000/api/leads')` để lấy dữ liệu.
+    *   Xem hàm `renderTable()` (hoặc hàm tương tự): Nhận dữ liệu JSON từ API và dùng vòng lặp để tạo các phần tử HTML (như `<tr>`, `<td>`) đưa vào bảng hiển thị.
+
+**💡 Tóm tắt luồng dữ liệu (Data Flow):**
+`LinkedIn (Trình duyệt)` ➡️ `content.js` (bóc tách HTML) ➡️ `Gửi POST API` ➡️ `app.py` (Lưu data vào `leads.json`) ➡️ `Dashboard gọi GET API` ➡️ `Hiển thị trên web-app`
 
 ---
 

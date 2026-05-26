@@ -1,9 +1,11 @@
+// Lấy URL của Backend API từ ô cài đặt (hoặc dùng mặc định nếu trống)
 const API = () => document.getElementById("settingBackend")?.value || "https://leadfinder-ybvo.onrender.com";
 let allLeads = [];
 let searchQuery = "";
 let refreshTimer = null;
 
 // ─── Navigation ───────────────────────────────────────────────
+// Hàm dùng để chuyển đổi qua lại giữa các màn hình (Dashboard, Leads, Settings...)
 function showPage(name) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   document.getElementById("page-" + name).classList.add("active");
@@ -41,6 +43,7 @@ async function fetchStats() {
   } catch { setBackendOnline(false); }
 }
 
+// Lấy danh sách Leads từ Backend về và cập nhật giao diện
 async function fetchLeads(force = false) {
   try {
     const r = await fetch(`${API()}/api/leads`);
@@ -62,6 +65,7 @@ async function fetchLeads(force = false) {
   } catch { setBackendOnline(false); }
 }
 
+// Cập nhật trạng thái "Online/Offline" trên giao diện
 function setBackendOnline(ok) {
   document.getElementById("backendDot").className = "backend-dot" + (ok ? " online" : "");
   document.getElementById("backendLabel").textContent = ok ? "Backend online" : "Backend offline";
@@ -81,6 +85,7 @@ function statusPill(s) {
   return `<span class="pill ${cls}"><span class="dot"></span>${label}</span>`;
 }
 
+// Lọc danh sách leads dựa trên từ khóa tìm kiếm (searchQuery)
 function filtered() {
   if (!searchQuery) return allLeads;
   const q = searchQuery.toLowerCase();
@@ -184,6 +189,7 @@ function updateBulkDeleteBtn() {
   }
 }
 
+// Hàm gửi request xóa hàng loạt các dòng đã chọn lên Backend
 async function bulkDelete() {
   const activePage = document.querySelector('.page.active');
   const checked = activePage.querySelectorAll('.row-checkbox:checked');
