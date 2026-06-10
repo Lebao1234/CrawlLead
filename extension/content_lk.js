@@ -1,4 +1,4 @@
-const BACKEND_URL = "https://crawllead.onrender.com";
+const BACKEND_URL = "http://localhost:5000";
 
 /**
  * Hàm lấy thông tin của một người dùng từ trang Profile LinkedIn (ví dụ: Tên, Chức vụ, Công ty...)
@@ -272,17 +272,30 @@ function extractSearchResults() {
  * Hàm gửi dữ liệu leads thu thập được (dạng JSON) lên Backend API.
  */
 async function sendLeads(leads) {
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/leads`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(leads)
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['jwt_token'], async (res) => {
+      const token = res.jwt_token || "";
+      try {
+        const fetchRes = await fetch(`${BACKEND_URL}/api/leads`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+          },
+          body: JSON.stringify(leads)
+        });
+        if (fetchRes.status === 401) {
+          console.error("[LeadFinder] Unauthorized. Please login from the extension popup.");
+          resolve(null);
+          return;
+        }
+        resolve(await fetchRes.json());
+      } catch (e) {
+        console.error("[LeadFinder] Backend unreachable:", e);
+        resolve(null);
+      }
     });
-    return await res.json();
-  } catch (e) {
-    console.error("[LeadFinder] Backend unreachable:", e);
-    return null;
-  }
+  });
 }
 
 /**
@@ -300,7 +313,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg.action === "crawl_search") {
-    const leads = extractSearchResults();
+    let leads = extractSearchResults();
+    // Giới hạn ngẫu nhiên từ 10 - 15 account
+    const limit = Math.floor(Math.random() * 6) + 10;
+    if (leads.length > limit) leads = leads.slice(0, limit);
     sendLeads(leads).then(result => sendResponse({ ok: true, count: leads.length, result }));
     return true;
   }
@@ -467,7 +483,11 @@ async function crawlProfile() {
 async function crawlSearch(withEmail) {
   isCrawling = true;
   const inner = document.getElementById("lf-inner");
-  const leads = extractSearchResults();
+  let leads = extractSearchResults();
+
+  // Giới hạn ngẫu nhiên từ 10 - 15 account
+  const limit = Math.floor(Math.random() * 6) + 10;
+  if (leads.length > limit) leads = leads.slice(0, limit);
 
   if (!withEmail) {
     inner.textContent = "⏳ Đang crawl...";

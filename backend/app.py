@@ -1,234 +1,341 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import json, csv, os, io
-from datetime import datetime
+from datetime import datetime, timedelta
 import mimetypes
+from pymongo import MongoClient
+from dotenv import load_dotenv
+import jwt
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
+
+# Đọc file .env ở thư mục gốc
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.env'))
 
 # Đảm bảo hệ thống nhận diện đúng định dạng file CSS và JS
 mimetypes.add_type('text/css', '.css')
 mimetypes.add_type('application/javascript', '.js')
 
-# Xác định đường dẫn tuyệt đối của thư mục chứa file app.py (thư mục backend)
 base_dir = os.path.dirname(os.path.abspath(__file__))
-# Lùi lại một cấp và vào thư mục web-app để trỏ tới thư mục chứa frontend
-web_app_dir = os.path.join(base_dir, "..", "web-app")
+web_app_dir = os.path.join(base_dir, "..", "frontend")
 
-# Khởi tạo ứng dụng Flask
-# static_folder: Thư mục chứa file tĩnh (HTML, CSS, JS)
-# static_url_path: Đường dẫn ảo để giấu đường dẫn thật
 app = Flask(__name__, static_folder=web_app_dir, static_url_path="/static_assets_hidden")
-
-# Bật CORS (Cross-Origin Resource Sharing)
-# Cho phép Chrome Extension (chạy trên trang LinkedIn) gửi request API đến server Flask này
 CORS(app)
+
+# ==========================================
+# KHỞI TẠO KẾT NỐI MONGODB
+# ==========================================
+MONGO_URL = os.environ.get("MongoURL")
+if not MONGO_URL:
+    raise ValueError("Missing MongoURL in .env file")
+
+client = MongoClient(MONGO_URL)
+db = client["CrawlLead"]
+leads_collection = db["Linkedin"]
+fb_collection = db["Facebook"]
+users_collection = db["Users"]
+
+SECRET_KEY = os.environ.get("SECRET_KEY", "leadfinder_secret_key_123")
+
+# ==========================================
+# PHẦN 0: XÁC THỰC (AUTHENTICATION)
+# ==========================================
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(" ")[1]
+        
+        if not token:
+            return jsonify({'error': 'Token is missing!'}), 401
+        
+        try:
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            current_user = users_collection.find_one({"username": data['username']})
+            if not current_user:
+                raise Exception("User not found")
+        except:
+            return jsonify({'error': 'Token is invalid or expired!'}), 401
+            
+        return f(current_user, *args, **kwargs)
+    return decorated
+
+@app.route("/api/register", methods=["POST"])
+def register():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({'error': 'Missing username or password'}), 400
+        
+    if users_collection.find_one({"username": username}):
+        return jsonify({'error': 'User already exists'}), 400
+        
+    hashed_password = generate_password_hash(password)
+    users_collection.insert_one({"username": username, "password": hashed_password})
+    return jsonify({'ok': True, 'message': 'Registered successfully'})
+
+@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    
+    user = users_collection.find_one({"username": username})
+    if not user or not check_password_hash(user['password'], password):
+        return jsonify({'error': 'Invalid credentials'}), 401
+    
+    token = jwt.encode({
+        'username': user['username'],
+        'exp': datetime.utcnow() + timedelta(days=30)
+    }, SECRET_KEY, algorithm="HS256")
+    
+    return jsonify({'token': token, 'username': user['username']})
 
 # ==========================================
 # PHẦN 1: PHỤC VỤ GIAO DIỆN WEB (FRONTEND)
 # ==========================================
 
-# Xử lý các request yêu cầu file tĩnh (như style.css, script.js)
 @app.route("/<path:filename>")
 def serve_static(filename):
-    # Lấy đường dẫn thực tế của file trong thư mục web-app
     file_path = os.path.join(web_app_dir, filename)
-    
-    # Nếu file tồn tại thì trả về cho client
     if os.path.exists(file_path):
         mimetype = None
-        # Thiết lập đúng kiểu dữ liệu (mimetype) để trình duyệt hiểu
         if filename.endswith(".css"):
             mimetype = "text/css"
         elif filename.endswith(".js"):
             mimetype = "application/javascript"
-        # Trả về nội dung file
         return send_file(file_path, mimetype=mimetype)
-    
-    # Trả về mã lỗi 404 nếu không tìm thấy file
     return jsonify({"error": "Not found"}), 404
 
-# Khi truy cập thư mục gốc "/", trả về file giao diện chính (index.html)
 @app.route("/")
 def index():
     return send_file(os.path.join(web_app_dir, "index.html"))
 
 # ==========================================
-# PHẦN 2: QUẢN LÝ DỮ LIỆU (DATABASE GIẢ LẬP BẰNG JSON)
+# PHẦN 2: CÁC API ENDPOINTS XỬ LÝ DỮ LIỆU TỪ MONGODB
 # ==========================================
 
-# Tên file dùng để lưu trữ dữ liệu leads
-DATA_FILE = "leads.json"
+def get_all_leads_from_db():
+    return list(leads_collection.find({}, {"_id": 0}))
 
-# Hàm đọc dữ liệu từ file leads.json
-def load_leads():
-    # Nếu file chưa tồn tại (chưa có lead nào), trả về danh sách rỗng
-    if not os.path.exists(DATA_FILE):
-        return []
-    # Mở file để đọc với mã hóa utf-8 để không bị lỗi tiếng Việt
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+def get_leads_with_id():
+    return list(leads_collection.find())
 
-# Hàm ghi toàn bộ dữ liệu danh sách leads đè lên file leads.json
-def save_leads(leads):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        # Ghi dữ liệu JSON ra file, thụt lề 2 space cho dễ đọc, giữ nguyên ký tự tiếng Việt
-        json.dump(leads, f, ensure_ascii=False, indent=2)
-
-# ==========================================
-# PHẦN 3: CÁC API ENDPOINTS XỬ LÝ DỮ LIỆU
-# ==========================================
-
-# API lấy danh sách toàn bộ leads
-# Giao diện gọi API này bằng phương thức GET để hiển thị bảng dữ liệu
 @app.route("/api/leads", methods=["GET"])
-def get_leads():
-    leads = load_leads() # Gọi hàm đọc file
-    # Trả về kết quả dạng JSON bao gồm danh sách và tổng số lượng
+@token_required
+def get_leads(current_user):
+    leads = get_all_leads_from_db()
     return jsonify({"leads": leads, "total": len(leads)})
 
-# API thêm leads mới (khi Extension ấn nút Crawl)
-# Gọi bằng phương thức POST và gửi dữ liệu body dạng JSON
 @app.route("/api/leads", methods=["POST"])
-def add_leads():
-    data = request.json # Lấy dữ liệu gửi lên
-    
-    # Đảm bảo dữ liệu là 1 mảng (list), nếu chỉ có 1 lead thì bọc nó vào mảng
+@token_required
+def add_leads(current_user):
+    data = request.json
     new_leads = data if isinstance(data, list) else [data]
     
-    # Lấy danh sách leads cũ đã có trong hệ thống
-    existing = load_leads()
-
     added, dupes = [], []
     
-    # Duyệt qua từng lead mới được gửi lên
     for lead in new_leads:
-        # Thêm timestamp thời gian tạo
+        lead.pop("_id", None)
         lead["created_at"] = datetime.now().isoformat()
+        lead["crawled_by"] = current_user["username"] # Lưu người thu thập
         
-        is_dupe = False
-        
-        # Kiểm tra xem có bị trùng với dữ liệu cũ không
-        for i, existing_lead in enumerate(existing):
-            # Trùng nhau nếu giống hệt Email hoặc URL LinkedIn
-            match_email = existing_lead.get("email") and lead.get("email") and existing_lead["email"].lower() == lead["email"].lower()
-            match_url = existing_lead.get("linkedin_url") and lead.get("linkedin_url") and existing_lead["linkedin_url"] == lead["linkedin_url"]
+        query = {"$or": []}
+        if lead.get("email") and lead["email"] != "Chưa có":
+            query["$or"].append({"email": {"$regex": f"^{lead['email']}$", "$options": "i"}})
+        if lead.get("linkedin_url"):
+            query["$or"].append({"linkedin_url": lead["linkedin_url"]})
             
-            # Nếu phát hiện trùng lặp
-            if match_email or match_url:
-                is_dupe = True
-                # Gộp dữ liệu mới vào dòng cũ (nếu có thông tin mới tốt hơn)
-                for k, v in lead.items():
-                    if v and v != "Chưa có":
-                        existing[i][k] = v # Cập nhật thông tin mới vào record hiện tại
-                
-                # Đưa vào danh sách bị trùng
-                dupes.append(existing[i])
-                break # Đã tìm thấy trùng thì không cần kiểm tra các lead cũ khác nữa
-                
-        # Nếu trùng rồi thì không thêm dòng mới
-        if is_dupe:
-            pass 
+        if not query["$or"]:
+            existing_lead = None
         else:
-            # Nếu chưa trùng, gắn trạng thái là "new" (mới) và thêm vào danh sách chung
+            existing_lead = leads_collection.find_one(query)
+            
+        if existing_lead:
+            update_data = {}
+            for k, v in lead.items():
+                if v and v != "Chưa có" and k != "status":
+                    update_data[k] = v
+            
+            if update_data:
+                leads_collection.update_one({"_id": existing_lead["_id"]}, {"$set": update_data})
+                
+            existing_lead.pop("_id", None)
+            existing_lead.update(update_data)
+            dupes.append(existing_lead)
+        else:
             lead["status"] = "new"
-            existing.append(lead)
-            added.append(lead)
+            leads_collection.insert_one(lead)
+            inserted_lead = lead.copy()
+            inserted_lead.pop("_id", None)
+            added.append(inserted_lead)
 
-    # Sau khi duyệt xong tất cả các leads gửi lên, lưu lại vào file json
-    save_leads(existing)
-    
-    # Trả về kết quả thống kê số lượng đã thêm và số lượng bị trùng
     return jsonify({"added": len(added), "duplicates": len(dupes), "leads": added})
 
-# API xóa 1 lead theo vị trí index của nó trong mảng
 @app.route("/api/leads/<int:idx>", methods=["DELETE"])
-def delete_lead(idx):
-    leads = load_leads()
-    # Kiểm tra tính hợp lệ của index
+@token_required
+def delete_lead(current_user, idx):
+    leads = get_leads_with_id()
     if idx < 0 or idx >= len(leads):
         return jsonify({"error": "Not found"}), 404
     
-    # Xóa phần tử tại vị trí idx ra khỏi danh sách
-    leads.pop(idx)
-    save_leads(leads) # Lưu lại file
+    doc_to_delete = leads[idx]
+    leads_collection.delete_one({"_id": doc_to_delete["_id"]})
     return jsonify({"ok": True})
 
-# API xóa hàng loạt (nhiều leads cùng lúc)
 @app.route("/api/leads/bulk-delete", methods=["POST"])
-def bulk_delete_leads():
+@token_required
+def bulk_delete_leads(current_user):
     data = request.json
-    indices = set(data.get("indices", [])) # Lấy danh sách các số thứ tự cần xóa
-    leads = load_leads()
+    indices = set(data.get("indices", []))
+    leads = get_leads_with_id()
     
-    # Dùng list comprehension: Giữ lại những lead có index KHÔNG nằm trong mảng cần xóa
-    leads = [lead for i, lead in enumerate(leads) if i not in indices]
+    ids_to_delete = [leads[i]["_id"] for i in range(len(leads)) if i in indices]
     
-    save_leads(leads)
-    return jsonify({"ok": True, "deleted": len(indices)})
+    if ids_to_delete:
+        leads_collection.delete_many({"_id": {"$in": ids_to_delete}})
+        
+    return jsonify({"ok": True, "deleted": len(ids_to_delete)})
 
-# API xóa sạch toàn bộ dữ liệu (clear all)
 @app.route("/api/leads/clear", methods=["POST"])
-def clear_leads():
-    # Lưu một mảng rỗng vào file
-    save_leads([])
+@token_required
+def clear_leads(current_user):
+    leads_collection.delete_many({})
     return jsonify({"ok": True})
 
-# API đánh dấu 1 lead là đã kiểm chứng (verified)
 @app.route("/api/leads/<int:idx>/verify", methods=["POST"])
-def verify_lead(idx):
-    leads = load_leads()
+@token_required
+def verify_lead(current_user, idx):
+    leads = get_leads_with_id()
     if idx < 0 or idx >= len(leads):
         return jsonify({"error": "Not found"}), 404
     
-    # Chuyển trạng thái sang verified
-    leads[idx]["status"] = "verified"
-    save_leads(leads)
+    doc_to_verify = leads[idx]
+    leads_collection.update_one({"_id": doc_to_verify["_id"]}, {"$set": {"status": "verified"}})
     return jsonify({"ok": True})
 
-# API Thống kê tổng quan để vẽ biểu đồ số liệu trên Dashboard
 @app.route("/api/stats", methods=["GET"])
 def stats():
-    leads = load_leads()
-    total = len(leads) # Tổng số
-    
-    # Đếm số lượng theo từng trạng thái bằng generator expression
-    verified = sum(1 for l in leads if l.get("status") == "verified")
-    dupes = sum(1 for l in leads if l.get("status") == "duplicate")
-    new = sum(1 for l in leads if l.get("status") == "new")
+    # Public API or optional auth? Let's make it public so checkBackend works easily without token
+    total = leads_collection.count_documents({})
+    verified = leads_collection.count_documents({"status": "verified"})
+    dupes = leads_collection.count_documents({"status": "duplicate"})
+    new = leads_collection.count_documents({"status": "new"})
     
     return jsonify({"total": total, "verified": verified, "duplicates": dupes, "new": new})
 
-# API xuất dữ liệu ra file CSV cho phép người dùng download
 @app.route("/api/export/csv", methods=["GET"])
 def export_csv():
-    leads = load_leads()
+    # Exporting CSV through browser might not send token easily via header. 
+    # Usually we pass token in query param or rely on session.
+    # For simplicity, we can get token from query arg: ?token=...
+    token = request.args.get('token')
+    if not token:
+        return jsonify({'error': 'Token is missing'}), 401
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    except:
+        return jsonify({'error': 'Token is invalid'}), 401
+
+    leads = get_all_leads_from_db()
     if not leads:
         return jsonify({"error": "No leads"}), 400
     
-    # Sử dụng io.StringIO() để tạo file text ảo trong RAM thay vì lưu cứng trên ổ đĩa
     output = io.StringIO()
-    # Danh sách các cột (headers) cần xuất
-    fields = ["name", "title", "company", "email", "phone", "location", "linkedin_url", "status", "created_at"]
+    fields = ["name", "title", "company", "email", "phone", "location", "linkedin_url", "status", "created_at", "crawled_by"]
     
-    # Tạo object DictWriter, nếu có key nào trong leads dư thừa thì sẽ bị bỏ qua (extrasaction="ignore")
     writer = csv.DictWriter(output, fieldnames=fields, extrasaction="ignore")
-    writer.writeheader() # Viết dòng tiêu đề
-    writer.writerows(leads) # Viết nội dung từng dòng
+    writer.writeheader()
+    writer.writerows(leads)
     
-    # Đưa con trỏ đọc về đầu chuỗi ảo
     output.seek(0)
-    
-    # Tạo chuỗi bytes để gửi dưới dạng file download
     file_bytes = io.BytesIO(output.getvalue().encode("utf-8"))
     filename = f"leads_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     
     return send_file(
         file_bytes,
         mimetype="text/csv",
-        as_attachment=True, # Bắt buộc trình duyệt phải tải xuống
+        as_attachment=True,
         download_name=filename
     )
 
-# Hàm Main để chạy ứng dụng khi khởi động file này
+# ==========================================
+# PHẦN 3: CÁC API ENDPOINTS XỬ LÝ DỮ LIỆU TỪ FACEBOOK
+# ==========================================
+
+def get_all_fb_from_db():
+    return list(fb_collection.find({}, {"_id": 0}))
+
+def get_fb_with_id():
+    return list(fb_collection.find())
+
+@app.route("/api/facebook", methods=["GET"])
+@token_required
+def get_fb_posts(current_user):
+    posts = get_all_fb_from_db()
+    return jsonify({"posts": posts, "total": len(posts)})
+
+@app.route("/api/facebook", methods=["POST"])
+@token_required
+def add_fb_posts(current_user):
+    data = request.json
+    new_posts = data if isinstance(data, list) else [data]
+    
+    added, dupes = [], []
+    
+    for post in new_posts:
+        post.pop("_id", None)
+        post["created_at"] = datetime.now().isoformat()
+        post["crawled_by"] = current_user["username"] # Lưu người thu thập
+        
+        query = None
+        if post.get("post_url"):
+            query = {"post_url": post["post_url"]}
+        
+        existing_post = fb_collection.find_one(query) if query else None
+            
+        if existing_post:
+            update_data = {}
+            for k, v in post.items():
+                if v and k != "status":
+                    update_data[k] = v
+            
+            if update_data:
+                fb_collection.update_one({"_id": existing_post["_id"]}, {"$set": update_data})
+                
+            existing_post.pop("_id", None)
+            existing_post.update(update_data)
+            dupes.append(existing_post)
+        else:
+            fb_collection.insert_one(post)
+            inserted_post = post.copy()
+            inserted_post.pop("_id", None)
+            added.append(inserted_post)
+
+    return jsonify({"added": len(added), "duplicates": len(dupes), "posts": added})
+
+@app.route("/api/facebook/<int:idx>", methods=["DELETE"])
+@token_required
+def delete_fb_post(current_user, idx):
+    posts = get_fb_with_id()
+    if idx < 0 or idx >= len(posts):
+        return jsonify({"error": "Not found"}), 404
+    
+    doc_to_delete = posts[idx]
+    fb_collection.delete_one({"_id": doc_to_delete["_id"]})
+    return jsonify({"ok": True})
+
+@app.route("/api/facebook/clear", methods=["POST"])
+@token_required
+def clear_fb_posts(current_user):
+    fb_collection.delete_many({})
+    return jsonify({"ok": True})
+
 if __name__ == "__main__":
-    # debug=True giúp server tự restart khi ta sửa code, chạy trên port 5000
     app.run(debug=True, port=5000)

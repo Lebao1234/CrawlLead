@@ -10,6 +10,7 @@
 </head>
 <body>
 
+
 <div class="topbar">
   <div class="logo">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/><circle cx="11" cy="11" r="3"/></svg>
@@ -24,7 +25,8 @@
   <div class="topbar-right">
     <div class="backend-dot" id="backendDot"></div>
     <span class="backend-label" id="backendLabel">Connecting…</span>
-    <div class="avatar">LF</div>
+    <button class="btn btn-ghost" onclick="logout()" id="logoutBtn" style="display:none; padding: 4px 8px; margin-right: 8px;">Logout</button>
+    <div class="avatar" id="userAvatar">LF</div>
   </div>
 </div>
 
@@ -39,6 +41,11 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       All Leads
       <span class="nav-count" id="navCount">0</span>
+    </div>
+    <div class="nav-item" onclick="showPage('facebook')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+      Facebook Posts
+      <span class="nav-count" id="navCountFb" style="background:#00A4FF">0</span>
     </div>
     <div class="nav-section">Actions</div>
     <div class="nav-item" onclick="exportCSV()">
@@ -139,9 +146,32 @@
           <table>
             <thead><tr>
               <th style="width:30px"><input type="checkbox" class="select-all" onchange="toggleSelectAll(this, 'leadsTable')"></th>
-              <th>Name</th><th>Position</th><th>Company</th><th>Email</th><th>LinkedIn</th><th>Status</th><th>Date</th><th>Actions</th>
+              <th>Name</th><th>Position</th><th>Company</th><th>Email</th><th>LinkedIn</th><th>Status</th><th>Date</th><th>Crawled By</th><th>Actions</th>
             </tr></thead>
             <tbody id="leadsTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FACEBOOK POSTS -->
+    <div class="page" id="page-facebook">
+      <div class="toolbar">
+        <span style="font-size:13px;font-weight:500">Facebook Posts</span>
+        <div style="flex:1"></div>
+        <button class="btn btn-danger btn-bulk-delete-fb" onclick="bulkDeleteFb()" style="display:none; margin-right: 8px;">
+          Xóa <span class="bulk-count-fb">0</span> đã chọn
+        </button>
+        <button class="btn btn-danger" onclick="clearAllFb()">Clear all FB</button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th style="width:30px"><input type="checkbox" class="select-all" onchange="toggleSelectAllFb(this)"></th>
+              <th style="width:15%">Author</th><th style="width:15%">Group</th><th style="width:30%">Content Snippet</th><th style="width:10%">Link</th><th style="width:10%">Date</th><th style="width:10%">Crawled By</th><th style="width:10%">Actions</th>
+            </tr></thead>
+            <tbody id="facebookTable"></tbody>
           </table>
         </div>
       </div>
@@ -183,10 +213,7 @@
     <div class="page" id="page-settings">
       <span style="font-size:13px;font-weight:500">Settings</span>
       <div class="settings-card">
-        <div class="settings-row">
-          <div><div class="settings-label">Backend URL</div><div class="settings-sub">Flask API endpoint</div></div>
-          <input class="settings-input" id="settingBackend" value="https://crawllead.onrender.com" onchange="saveSettings()">
-        </div>
+
         <div class="settings-row">
           <div><div class="settings-label">Auto-refresh</div><div class="settings-sub">Refresh data every N seconds (0 = off)</div></div>
           <input class="settings-input" id="settingRefresh" type="number" value="5" min="0" onchange="saveSettings()">
@@ -203,6 +230,7 @@
 
 <div id="toast"></div>
 
+<script src="auth.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

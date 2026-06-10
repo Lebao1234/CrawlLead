@@ -1,4 +1,4 @@
-const BACKEND = "https://crawllead.onrender.com";
+const BACKEND = "http://localhost:5000";
 
 // Kiểm tra xem Backend Server có đang chạy không bằng cách gọi API /api/stats
 async function checkBackend() {
@@ -15,6 +15,59 @@ async function checkBackend() {
     return false;
   }
 }
+
+async function checkAuthStatus() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['jwt_token'], (res) => {
+      resolve(res.jwt_token ? true : false);
+    });
+  });
+}
+
+document.getElementById("extLoginBtn").addEventListener("click", async () => {
+  const user = document.getElementById("extUser").value.trim();
+  const pass = document.getElementById("extPass").value;
+  const errorEl = document.getElementById("extAuthError");
+  const btn = document.getElementById("extLoginBtn");
+  
+  if (!user || !pass) {
+    errorEl.textContent = "Please enter username and password";
+    errorEl.style.display = "block";
+    return;
+  }
+  
+  btn.textContent = "⏳ Logging in...";
+  btn.disabled = true;
+  errorEl.style.display = "none";
+  
+  try {
+    const res = await fetch(`${BACKEND}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass })
+    });
+    const d = await res.json();
+    if (res.ok) {
+      chrome.storage.local.set({ jwt_token: d.token }, () => {
+        init(); // reload UI
+      });
+    } else {
+      errorEl.textContent = d.error || "Login failed";
+      errorEl.style.display = "block";
+    }
+  } catch (e) {
+    errorEl.textContent = "Network error";
+    errorEl.style.display = "block";
+  }
+  btn.textContent = "Login";
+  btn.disabled = false;
+});
+
+document.getElementById("logoutExtBtn").addEventListener("click", () => {
+  chrome.storage.local.remove(['jwt_token'], () => {
+    init();
+  });
+});
 
 async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -33,6 +86,19 @@ function getPageType(url) {
 
 // Khởi tạo popup khi người dùng vừa bấm vào icon Extension
 async function init() {
+  const isAuth = await checkAuthStatus();
+  
+  if (!isAuth) {
+    document.getElementById("authSection").style.display = "block";
+    document.getElementById("mainBody").style.display = "none";
+    document.getElementById("mainFooter").style.display = "none";
+    return;
+  } else {
+    document.getElementById("authSection").style.display = "none";
+    document.getElementById("mainBody").style.display = "flex";
+    document.getElementById("mainFooter").style.display = "flex";
+  }
+
   const online = await checkBackend();
   const tab = await getActiveTab();
   const url = tab?.url || "";
@@ -90,10 +156,6 @@ document.getElementById("exportBtn").addEventListener("click", () => {
   chrome.tabs.create({ url: `${BACKEND}/api/export/csv` });
 });
 
-document.getElementById("clearBtn").addEventListener("click", async () => {
-  if (!confirm("Clear all leads?")) return;
-  await fetch(`${BACKEND}/api/leads/clear`, { method: "POST" });
-  checkBackend();
-});
+// Removed clearBtn since it's destructive and better kept on the dashboard
 
 init();

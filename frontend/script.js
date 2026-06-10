@@ -1,8 +1,11 @@
-// Lấy URL của Backend API từ ô cài đặt (hoặc dùng mặc định nếu trống)
-const API = () => document.getElementById("settingBackend")?.value || "https://crawllead.onrender.com";
+// Mặc định kết nối thẳng tới backend local
+const API = () => "http://localhost:5000";
 let allLeads = [];
+let allFbPosts = [];
 let searchQuery = "";
 let refreshTimer = null;
+
+// Authentication logic moved to auth.js
 
 // ─── Navigation ───────────────────────────────────────────────
 // Hàm dùng để chuyển đổi qua lại giữa các màn hình (Dashboard, Leads, Settings...)
@@ -12,6 +15,7 @@ function showPage(name) {
   document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
   event.currentTarget?.classList.add("active");
   if (name === "leads") renderLeadsPage();
+  if (name === "facebook") renderFbPage();
   if (name === "dupes") renderDupes();
   if (name === "settings") checkBackend();
   updateBulkDeleteBtn(); // Reset bulk button state on tab switch
@@ -131,6 +135,7 @@ function renderLeadsPage() {
       <td style="font-size:11px">${l.linkedin_url ? `<a href="${esc(l.linkedin_url)}" target="_blank" style="color:var(--accent);text-decoration:none">View ↗</a>` : "—"}</td>
       <td>${statusPill(l.status)}</td>
       <td style="font-size:11px;color:var(--muted)">${(l.created_at||"").slice(0,10)||"—"}</td>
+      <td><span class="tag">${esc(l.crawled_by||"—")}</span></td>
       <td>
         <div class="actions">
           <button class="icon-btn verify" onclick="verifyLead(${allLeads.indexOf(l)})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>
@@ -157,6 +162,84 @@ function renderDupes() {
     </tr>`).join("");
 }
 
+// ─── Facebook ─────────────────────────────────────────────────
+async function fetchFbPosts(force = false) {
+  try {
+    const r = await fetch(`${API()}/api/facebook`);
+    const d = await r.json();
+    const isSelecting = document.querySelectorAll('#facebookTable .row-checkbox:checked').length > 0;
+    if (isSelecting && !force) return; 
+
+    allFbPosts = d.posts || [];
+    renderFbPage();
+    if (document.getElementById("navCountFb")) {
+      document.getElementById("navCountFb").textContent = d.total || 0;
+    }
+  } catch {}
+}
+
+function renderFbPage() {
+  const tbody = document.getElementById("facebookTable");
+  if (!tbody) return;
+  const q = searchQuery.toLowerCase();
+  let posts = allFbPosts;
+  if (q) posts = posts.filter(p => (p.author||"").toLowerCase().includes(q) || (p.group_name||"").toLowerCase().includes(q) || (p.content||"").toLowerCase().includes(q));
+
+  if (!posts.length) { tbody.innerHTML = `<tr><td colspan="7"><div class="empty">No Facebook posts found.</div></td></tr>`; updateBulkDeleteBtn(); return; }
+  
+  tbody.innerHTML = posts.map((p, i) => `
+    <tr>
+      <td><input type="checkbox" class="row-checkbox" value="${allFbPosts.indexOf(p)}" onchange="updateBulkDeleteBtn()"></td>
+      <td><div class="lead-name">${esc(p.author||"—")}</div></td>
+      <td style="font-size:12px">${esc(p.group_name||"—")}</td>
+      <td style="font-size:12px;color:var(--muted)">${esc(p.content_snippet||"—")}</td>
+      <td style="font-size:11px">${p.post_url ? `<a href="${esc(p.post_url)}" target="_blank" style="color:var(--accent);text-decoration:none">View ↗</a>` : "—"}</td>
+      <td style="font-size:11px;color:var(--muted)">${(p.created_at||"").slice(0,10)||"—"}</td>
+      <td><span class="tag">${esc(p.crawled_by||"—")}</span></td>
+      <td>
+        <div class="actions">
+          <button class="icon-btn del" onclick="deleteFbPost(${allFbPosts.indexOf(p)})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+        </div>
+      </td>
+    </tr>`).join("");
+  updateBulkDeleteBtn();
+}
+
+async function deleteFbPost(idx) {
+  if (!confirm("Delete this post?")) return;
+  await fetch(`${API()}/api/facebook/${idx}`, { method: "DELETE" });
+  toast("Post deleted");
+  fetchFbPosts(true);
+}
+
+async function clearAllFb() {
+  if (!confirm("Delete ALL Facebook posts? This cannot be undone.")) return;
+  await fetch(`${API()}/api/facebook/clear`, { method: "POST" });
+  toast("All FB posts cleared", "error");
+  fetchFbPosts(true);
+}
+
+function toggleSelectAllFb(checkbox) {
+  const checkboxes = document.querySelectorAll('#facebookTable .row-checkbox');
+  checkboxes.forEach(cb => cb.checked = checkbox.checked);
+  updateBulkDeleteBtn();
+}
+
+async function bulkDeleteFb() {
+  const activePage = document.querySelector('.page.active');
+  const checked = activePage.querySelectorAll('.row-checkbox:checked');
+  if (checked.length === 0) return;
+  if (!confirm('Bạn có chắc muốn xóa ' + checked.length + ' bài viết đã chọn?')) return;
+  
+  const indices = Array.from(checked).map(cb => parseInt(cb.value)).sort((a,b) => b - a);
+  for (let idx of indices) {
+    await fetch(`${API()}/api/facebook/${idx}`, { method: "DELETE" });
+  }
+  
+  toast('Đã xóa ' + checked.length + ' posts');
+  fetchFbPosts(true);
+}
+
 // ─── Actions ──────────────────────────────────────────────────
 function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
@@ -170,8 +253,8 @@ function updateBulkDeleteBtn() {
   const activePage = document.querySelector('.page.active');
   if (!activePage) return;
   const checked = activePage.querySelectorAll('.row-checkbox:checked');
-  const btn = activePage.querySelector('.btn-bulk-delete');
-  const countSpan = activePage.querySelector('.bulk-count');
+  const btn = activePage.querySelector('.btn-bulk-delete') || activePage.querySelector('.btn-bulk-delete-fb');
+  const countSpan = activePage.querySelector('.bulk-count') || activePage.querySelector('.bulk-count-fb');
   
   if (btn && countSpan) {
     if (checked.length > 0) {
@@ -229,7 +312,8 @@ async function clearAll() {
 }
 
 function exportCSV() {
-  window.open(`${API()}/api/export/csv`, "_blank");
+  const token = localStorage.getItem('jwt_token') || "";
+  window.open(`${API()}/api/export/csv?token=${token}`, "_blank");
 }
 
 async function importJSON() {
@@ -248,6 +332,7 @@ function onSearch(q) {
   searchQuery = q;
   renderDashTable();
   renderLeadsPage();
+  renderFbPage();
 }
 
 function saveSettings() {
@@ -257,6 +342,9 @@ function saveSettings() {
 }
 
 // ─── Init ─────────────────────────────────────────────────────
-fetchLeads();
-const secs = parseInt(document.getElementById("settingRefresh")?.value) || 5;
-if (secs > 0) refreshTimer = setInterval(fetchLeads, secs * 1000);
+function fetchAllData() {
+  fetchLeads();
+  fetchFbPosts();
+}
+
+checkAuth();
