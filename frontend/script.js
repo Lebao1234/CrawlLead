@@ -1,5 +1,5 @@
 // Mặc định kết nối thẳng tới backend local
-const API = () => "http://localhost:5000";
+const API = () => "https://crawllead.onrender.com";
 let allLeads = [];
 let allFbPosts = [];
 let searchQuery = "";

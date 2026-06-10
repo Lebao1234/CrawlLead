@@ -41,7 +41,7 @@ function showMsg(msg, type = "success") {
   }
 }
 
-const API_URL = "http://localhost:5000";
+const API_URL = "https://crawllead.onrender.com";
 
 async function submitAuth() {
   const user = document.getElementById('authUsername').value.trim();

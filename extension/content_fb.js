@@ -1,5 +1,5 @@
 // content_fb.js — v7 — Fix noise "Facebook", author, virtualization
-const BACKEND_URL = "http://localhost:5000";
+const BACKEND_URL = "https://crawllead.onrender.com";
 
 function extractFromFeedItem(el, groupName, cleanKeyword, idx) {
   // Lấy text, lọc bỏ noise "Facebook" lặp lại từ icon/logo

@@ -1,4 +1,4 @@
-const BACKEND = "http://localhost:5000";
+const BACKEND = "https://crawllead.onrender.com";
 
 // Kiểm tra xem Backend Server có đang chạy không bằng cách gọi API /api/stats
 async function checkBackend() {
@@ -149,7 +149,7 @@ document.getElementById("crawlBtn").addEventListener("click", async () => {
 });
 
 document.getElementById("openDashboard").addEventListener("click", () => {
-  chrome.tabs.create({ url: "http://localhost:3000" });
+  chrome.tabs.create({ url: "https://crawllead.onrender.com" });
 });
 
 document.getElementById("exportBtn").addEventListener("click", () => {
