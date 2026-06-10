@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 
 # Copy cả 2 thư mục backend và web-app vào container
 COPY backend/ ./backend/
-COPY web-app/ ./web-app/
+COPY /frontend/ ./frontend/
 
 # Chuyển thư mục làm việc vào backend để chạy gunicorn
 WORKDIR /app/backend
