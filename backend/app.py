@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-import json, csv, os, io
+import json, csv, os, io, re
 from datetime import datetime, timedelta
 import mimetypes
 from pymongo import MongoClient
@@ -33,6 +33,7 @@ client = MongoClient(MONGO_URL)
 db = client["CrawlLead"]
 leads_collection = db["Linkedin"]
 fb_collection = db["Facebook"]
+lk_posts_collection = db["LinkedInPosts"]
 users_collection = db["Users"]
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "leadfinder_secret_key_123")
@@ -121,6 +122,18 @@ def index():
 # PHẦN 2: CÁC API ENDPOINTS XỬ LÝ DỮ LIỆU TỪ MONGODB
 # ==========================================
 
+def normalize_linkedin_url(url):
+    if not url:
+        return ""
+    # Standardize to lowercase and strip whitespace
+    url = url.strip().split("?")[0]
+    if url.endswith("/"):
+        url = url[:-1]
+    # Standardize subdomains
+    url = re.sub(r'^https?://[a-z]{2,3}\.linkedin\.com', 'https://www.linkedin.com', url)
+    url = re.sub(r'^https?://linkedin\.com', 'https://www.linkedin.com', url)
+    return url
+
 def get_all_leads_from_db():
     return list(leads_collection.find({}, {"_id": 0}))
 
@@ -147,10 +160,23 @@ def add_leads(current_user):
         lead["crawled_by"] = current_user["username"] # Lưu người thu thập
         
         query = {"$or": []}
-        if lead.get("email") and lead["email"] != "Chưa có":
+        if lead.get("email") and lead["email"] != "Chưa có" and lead["email"] != "":
             query["$or"].append({"email": {"$regex": f"^{lead['email']}$", "$options": "i"}})
+        
         if lead.get("linkedin_url"):
-            query["$or"].append({"linkedin_url": lead["linkedin_url"]})
+            norm_url = normalize_linkedin_url(lead["linkedin_url"])
+            lead["linkedin_url"] = norm_url
+            
+            # Trích xuất username để tìm kiếm trùng lặp cả trong dữ liệu cũ chưa chuẩn hóa
+            if "/in/" in norm_url:
+                username = norm_url.split("/in/")[-1].split("/")[0]
+                if username:
+                    pattern = f"linkedin\\.com/in/{re.escape(username)}/?(?:$|\\?)"
+                    query["$or"].append({"linkedin_url": {"$regex": pattern, "$options": "i"}})
+                else:
+                    query["$or"].append({"linkedin_url": norm_url})
+            else:
+                query["$or"].append({"linkedin_url": norm_url})
             
         if not query["$or"]:
             existing_lead = None
@@ -163,6 +189,10 @@ def add_leads(current_user):
                 if v and v != "Chưa có" and k != "status":
                     update_data[k] = v
             
+            # Đảm bảo lưu URL đã chuẩn hóa
+            if lead.get("linkedin_url"):
+                update_data["linkedin_url"] = lead["linkedin_url"]
+                
             if update_data:
                 leads_collection.update_one({"_id": existing_lead["_id"]}, {"$set": update_data})
                 
@@ -227,8 +257,10 @@ def stats():
     verified = leads_collection.count_documents({"status": "verified"})
     dupes = leads_collection.count_documents({"status": "duplicate"})
     new = leads_collection.count_documents({"status": "new"})
+    lk_posts = lk_posts_collection.count_documents({})
+    fb_posts = fb_collection.count_documents({})
     
-    return jsonify({"total": total, "verified": verified, "duplicates": dupes, "new": new})
+    return jsonify({"total": total, "verified": verified, "duplicates": dupes, "new": new, "lk_posts": lk_posts, "fb_posts": fb_posts})
 
 @app.route("/api/export/csv", methods=["GET"])
 def export_csv():
@@ -248,14 +280,67 @@ def export_csv():
         return jsonify({"error": "No leads"}), 400
     
     output = io.StringIO()
-    fields = ["name", "title", "company", "email", "phone", "location", "linkedin_url", "status", "created_at", "crawled_by"]
+    output.write("sep=,\r\n") # Chỉ thị cho Excel nhận biết dấu phân cách cột là dấu phẩy (,)
+    writer = csv.writer(output, lineterminator='\r\n')
     
-    writer = csv.DictWriter(output, fieldnames=fields, extrasaction="ignore")
-    writer.writeheader()
-    writer.writerows(leads)
+    # Tiêu đề cột tiếng Việt rõ ràng, chuyên nghiệp cho Excel
+    headers = [
+        "Họ và Tên",
+        "Chức vụ",
+        "Công ty",
+        "Email",
+        "Số điện thoại",
+        "Địa điểm",
+        "LinkedIn URL",
+        "Trạng thái",
+        "Ngày thu thập",
+        "Người thu thập"
+    ]
+    writer.writerow(headers)
+    
+    for lead in leads:
+        # Lấy chức vụ từ cả 'position' và 'title' (đảm bảo không bị trống cột Chức vụ)
+        position = lead.get("position") or lead.get("title") or ""
+        
+        # Định dạng lại ngày thu thập cho đẹp và dễ đọc (DD/MM/YYYY HH:MM:SS)
+        created_at_raw = lead.get("created_at") or ""
+        created_at_nice = ""
+        if created_at_raw:
+            try:
+                # Bỏ phần miliseconds nếu có
+                clean_dt = created_at_raw.split(".")[0]
+                dt = datetime.fromisoformat(clean_dt)
+                created_at_nice = dt.strftime("%d/%m/%Y %H:%M:%S")
+            except Exception:
+                created_at_nice = created_at_raw
+                
+        # Dịch trạng thái sang tiếng Việt
+        status_map = {
+            "new": "Mới",
+            "contacted": "Đã liên hệ",
+            "interested": "Quan tâm",
+            "not_interested": "Không quan tâm"
+        }
+        status_raw = lead.get("status") or "new"
+        status_nice = status_map.get(status_raw, status_raw)
+        
+        row = [
+            lead.get("name") or "",
+            position,
+            lead.get("company") or "",
+            lead.get("email") or "",
+            lead.get("phone") or "",
+            lead.get("location") or "",
+            lead.get("linkedin_url") or "",
+            status_nice,
+            created_at_nice,
+            lead.get("crawled_by") or ""
+        ]
+        writer.writerow(row)
     
     output.seek(0)
-    file_bytes = io.BytesIO(output.getvalue().encode("utf-8"))
+    # Encode bằng utf-8-sig để Excel mở không bị lỗi font hiển thị tiếng Việt có dấu
+    file_bytes = io.BytesIO(output.getvalue().encode("utf-8-sig"))
     filename = f"leads_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     
     return send_file(
@@ -335,6 +420,80 @@ def delete_fb_post(current_user, idx):
 @token_required
 def clear_fb_posts(current_user):
     fb_collection.delete_many({})
+    return jsonify({"ok": True})
+
+# ==========================================
+# PHẦN 4: CÁC API ENDPOINTS XỬ LÝ LINKEDIN POSTS
+# ==========================================
+
+def get_all_lk_posts_from_db():
+    return list(lk_posts_collection.find({}, {"_id": 0}))
+
+def get_lk_posts_with_id():
+    return list(lk_posts_collection.find())
+
+@app.route("/api/lk-posts", methods=["GET"])
+@token_required
+def get_lk_posts(current_user):
+    posts = get_all_lk_posts_from_db()
+    return jsonify({"posts": posts, "total": len(posts)})
+
+@app.route("/api/lk-posts", methods=["POST"])
+@token_required
+def add_lk_posts(current_user):
+    data = request.json
+    new_posts = data if isinstance(data, list) else [data]
+    added, dupes = [], []
+    for post in new_posts:
+        post.pop("_id", None)
+        post["created_at"] = datetime.now().isoformat()
+        post["crawled_by"] = current_user["username"]
+        query = None
+        if post.get("post_url"):
+            query = {"post_url": post["post_url"]}
+        existing_post = lk_posts_collection.find_one(query) if query else None
+        if existing_post:
+            update_data = {}
+            for k, v in post.items():
+                if v and k != "status":
+                    update_data[k] = v
+            if update_data:
+                lk_posts_collection.update_one({"_id": existing_post["_id"]}, {"$set": update_data})
+            existing_post.pop("_id", None)
+            existing_post.update(update_data)
+            dupes.append(existing_post)
+        else:
+            lk_posts_collection.insert_one(post)
+            inserted_post = post.copy()
+            inserted_post.pop("_id", None)
+            added.append(inserted_post)
+    return jsonify({"added": len(added), "duplicates": len(dupes), "posts": added})
+
+@app.route("/api/lk-posts/<int:idx>", methods=["DELETE"])
+@token_required
+def delete_lk_post(current_user, idx):
+    posts = get_lk_posts_with_id()
+    if idx < 0 or idx >= len(posts):
+        return jsonify({"error": "Not found"}), 404
+    doc_to_delete = posts[idx]
+    lk_posts_collection.delete_one({"_id": doc_to_delete["_id"]})
+    return jsonify({"ok": True})
+
+@app.route("/api/lk-posts/bulk-delete", methods=["POST"])
+@token_required
+def bulk_delete_lk_posts(current_user):
+    data = request.json
+    indices = set(data.get("indices", []))
+    posts = get_lk_posts_with_id()
+    ids_to_delete = [posts[i]["_id"] for i in range(len(posts)) if i in indices]
+    if ids_to_delete:
+        lk_posts_collection.delete_many({"_id": {"$in": ids_to_delete}})
+    return jsonify({"ok": True, "deleted": len(ids_to_delete)})
+
+@app.route("/api/lk-posts/clear", methods=["POST"])
+@token_required
+def clear_lk_posts(current_user):
+    lk_posts_collection.delete_many({})
     return jsonify({"ok": True})
 
 if __name__ == "__main__":

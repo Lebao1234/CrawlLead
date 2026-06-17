@@ -41,7 +41,7 @@ function showMsg(msg, type = "success") {
   }
 }
 
-const API_URL = "https://crawllead.onrender.com";
+const API_URL = CONFIG.API_URL + "/";
 
 async function submitAuth() {
   const user = document.getElementById('authUsername').value.trim();

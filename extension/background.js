@@ -7,10 +7,29 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.action === "fetch_api") {
+    const { url, options } = msg;
+    fetch(url, options)
+      .then(async (response) => {
+        const text = await response.text();
+        let data = null;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          data = text;
+        }
+        sendResponse({ ok: response.ok, status: response.status, data });
+      })
+      .catch((error) => {
+        sendResponse({ ok: false, error: error.message });
+      });
+    return true; // Keep the message channel open for async response
+  }
+
   if (msg.action === "open_profile_get_email") {
     const url = msg.url;
 
-    // Tạo một tab mới với url truyền vào, active: false để không làm phiền người dùng
+    // Tạo một tab mới ở trạng thái chạy ngầm (active: false) để tránh tự động nhảy tab làm gián đoạn người dùng
     chrome.tabs.create({ url, active: false }, (tab) => {
       const tabId = tab.id;
       let isResponded = false;
@@ -26,7 +45,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
            return;
         }
         
-        // Gửi lệnh "extract_profile_email" cho content script của tab ẩn này để bắt đầu quét HTML
+        // Gửi lệnh "extract_profile_email" cho content script của tab này để bắt đầu quét HTML
         chrome.tabs.sendMessage(tabId, { action: "extract_profile_email" }, (response) => {
           if (chrome.runtime.lastError || !response) {
              // Lỗi do đang redirect hoặc content chưa load xong -> thử lại
@@ -37,7 +56,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
              isResponded = true;
              chrome.tabs.remove(tabId).catch(() => {});
              sendResponse({ lead: response.lead || null });
-          }
+           }
         });
       };
 

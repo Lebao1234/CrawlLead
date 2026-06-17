@@ -149,3 +149,47 @@ body {
     display: flex;
     gap: 8px;
 }
+
+.options-box {
+    background: #161a24;
+    border: 0.5px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.input-label {
+    font-size: 10px;
+    color: #7a8099;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#crawlKeyword, #scrollSteps {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: #1e2332;
+    color: #e8eaf0;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+#crawlKeyword:focus, #scrollSteps:focus {
+    border-color: #4f8ef7;
+}
+
+#scrollSteps {
+    cursor: pointer;
+}

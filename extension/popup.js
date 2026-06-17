@@ -1,4 +1,4 @@
-const BACKEND = "https://crawllead.onrender.com";
+const BACKEND = CONFIG.API_URL;
 
 // Kiểm tra xem Backend Server có đang chạy không bằng cách gọi API /api/stats
 async function checkBackend() {
@@ -74,14 +74,28 @@ async function getActiveTab() {
   return tab;
 }
 
-// Phân tích đường dẫn (URL) hiện tại xem nó là loại trang nào của LinkedIn
+// Phân tích đường dẫn (URL) hiện tại xem nó là loại trang nào của LinkedIn & Facebook
 function getPageType(url) {
   if (!url) return "Unknown";
-  if (url.includes("linkedin.com/in/")) return "Profile";
-  if (url.includes("linkedin.com/search/")) return "Search results";
-  if (url.includes("linkedin.com/sales/")) return "Sales Navigator";
-  if (url.includes("linkedin.com")) return "LinkedIn (other)";
-  return "Not LinkedIn";
+  const u = url.toLowerCase();
+  
+  // LinkedIn
+  if (u.includes("linkedin.com/in/")) return "LinkedIn Profile";
+  if (u.includes("linkedin.com/search/results/content")) return "LinkedIn Posts";
+  if (u.includes("linkedin.com/search/")) return "LinkedIn Search";
+  if (u.includes("linkedin.com/sales/")) return "LinkedIn Sales Navigator";
+  if (u.includes("linkedin.com/feed") || u.includes("linkedin.com/recent-activity") || u.includes("linkedin.com/posts")) return "LinkedIn Posts";
+  if (u.includes("linkedin.com")) return "LinkedIn (other)";
+
+  // Facebook
+  if (u.includes("facebook.com")) {
+    if (/\/(posts|permalink|videos)\/\d/.test(url) || u.includes("/photos/") || u.includes("/photo.php") || u.includes("/photo/?")) {
+      return "Facebook Post";
+    }
+    return "Facebook Feed";
+  }
+  
+  return "Unsupported Page";
 }
 
 // Khởi tạo popup khi người dùng vừa bấm vào icon Extension
@@ -107,49 +121,10 @@ async function init() {
   document.getElementById("pageUrl").textContent = url.length > 60 ? url.slice(0, 60) + "…" : url;
   document.getElementById("pageType").textContent = pageType;
 
-  const canCrawl = online && (pageType === "Profile" || pageType === "Search results" || pageType === "Sales Navigator");
-  document.getElementById("crawlBtn").disabled = !canCrawl;
 }
 
-// Lắng nghe sự kiện click vào nút "Crawl this page"
-document.getElementById("crawlBtn").addEventListener("click", async () => {
-  const btn = document.getElementById("crawlBtn");
-  const resultBox = document.getElementById("resultBox");
-  const tab = await getActiveTab();
-  const pageType = getPageType(tab?.url || "");
-
-  btn.disabled = true;
-  btn.textContent = "⏳ Crawling…";
-
-  const action = pageType === "Profile" ? "crawl_profile" : "crawl_search";
-
-  // Gửi lệnh "crawl_profile" hoặc "crawl_search" cho content.js đang chạy trên tab hiện tại
-  chrome.tabs.sendMessage(tab.id, { action }, (response) => {
-    if (chrome.runtime.lastError || !response) {
-      resultBox.innerHTML = `<span style="color:#ef4444">❌ Could not connect to page. Refresh LinkedIn and try again.</span>`;
-      resultBox.classList.add("visible");
-      btn.textContent = "🔍 Crawl this page";
-      btn.disabled = false;
-      return;
-    }
-
-    const r = response.result;
-    if (!r) {
-      resultBox.innerHTML = `<span style="color:#ef4444">❌ Backend unreachable or error saving.</span>`;
-    } else if (action === "crawl_profile") {
-      resultBox.innerHTML = `<span style="color:#22c55e">✓ Saved:</span> ${response.lead?.name || "Lead"}<br><span style="color:#7a8099;font-size:11px">${response.lead?.position} @ ${response.lead?.company}</span>`;
-    } else {
-      resultBox.innerHTML = `<span style="color:#22c55e">✓ ${r?.added || 0} leads added</span><br><span style="color:#f59e0b;font-size:11px">${r?.duplicates || 0} duplicates skipped</span>`;
-    }
-    resultBox.classList.add("visible");
-    btn.textContent = "🔍 Crawl this page";
-    btn.disabled = false;
-    checkBackend();
-  });
-});
-
 document.getElementById("openDashboard").addEventListener("click", () => {
-  chrome.tabs.create({ url: "https://crawllead.onrender.com" });
+  chrome.tabs.create({ url: CONFIG.DASHBOARD_URL });
 });
 
 document.getElementById("exportBtn").addEventListener("click", () => {

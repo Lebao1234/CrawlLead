@@ -1,235 +1,373 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LeadFinder</title>
+  <title>LeadFinder Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<nav class="navbar navbar-expand-lg border-bottom sticky-top py-2" style="background-color: var(--bg2); border-color: var(--border2) !important; z-index: 1050;">
+  <div class="container-fluid d-flex align-items-center justify-content-between p-0 px-3">
+    <a class="navbar-brand logo d-flex align-items-center gap-2 fw-bold" href="#" style="color: var(--accent);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="width:20px;height:20px;"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/><circle cx="11" cy="11" r="3"/></svg>
+      LeadFinder
+    </a>
 
-<div class="topbar">
-  <div class="logo">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/><circle cx="11" cy="11" r="3"/></svg>
-    LeadFinder
-  </div>
-  <div class="topbar-mid">
-    <div class="search-wrap">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input type="text" placeholder="Search leads…" id="globalSearch" oninput="onSearch(this.value)">
-    </div>
-  </div>
-  <div class="topbar-right">
-    <div class="backend-dot" id="backendDot"></div>
-    <span class="backend-label" id="backendLabel">Connecting…</span>
-    <button class="btn btn-ghost" onclick="logout()" id="logoutBtn" style="display:none; padding: 4px 8px; margin-right: 8px;">Logout</button>
-    <div class="avatar" id="userAvatar">LF</div>
-  </div>
-</div>
-
-<div class="layout">
-  <div class="sidebar">
-    <div class="nav-section">Main</div>
-    <div class="nav-item active" onclick="showPage('dashboard')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      Dashboard
-    </div>
-    <div class="nav-item" onclick="showPage('leads')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      All Leads
-      <span class="nav-count" id="navCount">0</span>
-    </div>
-    <div class="nav-item" onclick="showPage('facebook')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
-      Facebook Posts
-      <span class="nav-count" id="navCountFb" style="background:#00A4FF">0</span>
-    </div>
-    <div class="nav-section">Actions</div>
-    <div class="nav-item" onclick="exportCSV()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Export CSV
-    </div>
-    <div class="nav-item" onclick="showPage('import')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Import JSON
-    </div>
-    <div class="nav-section">System</div>
-    <div class="nav-item" onclick="showPage('dupes')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16v-1a2 2 0 0 1 2-2h1"/><path d="M4 12V5a2 2 0 0 1 2-2h7"/></svg>
-      Duplicates
-    </div>
-    <div class="nav-item" onclick="showPage('settings')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>
-      Settings
-    </div>
-  </div>
-
-  <div class="main">
-
-    <!-- DASHBOARD -->
-    <div class="page active" id="page-dashboard">
-      <div class="stats-row" id="statsRow">
-        <div class="stat-card">
-          <div class="stat-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Total Leads</div>
-          <div class="stat-value" id="statTotal">—</div>
-          <div class="stat-sub">All time</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Verified</div>
-          <div class="stat-value" id="statVerified" style="color:var(--green)">—</div>
-          <div class="stat-sub" id="statVerRate">—</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16v-1a2 2 0 0 1 2-2h1"/><path d="M4 12V5a2 2 0 0 1 2-2h7"/></svg> Duplicates</div>
-          <div class="stat-value" id="statDupes" style="color:var(--amber)">—</div>
-          <div class="stat-sub">Auto-detected</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> New</div>
-          <div class="stat-value" id="statNew" style="color:var(--accent)">—</div>
-          <div class="stat-sub">Pending review</div>
+    <div class="d-none d-md-flex align-items-center flex-grow-1 mx-4" style="max-width: 480px;">
+      <div class="search-wrap w-100" id="searchWrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;color:var(--muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" placeholder="Boolean search: AND, OR, NOT, &quot;exact&quot;, ( )" id="globalSearch" oninput="onSearch(this.value)" onfocus="showSearchHelp(true)" onblur="setTimeout(()=>showSearchHelp(false),200)">
+        <div class="search-help-panel" id="searchHelpPanel">
+          <div class="search-help-title">Boolean Search Syntax</div>
+          <div class="search-help-grid">
+            <div class="search-help-item">
+              <code>marketing manager</code>
+              <span>Implicit AND — cả hai từ phải khớp</span>
+            </div>
+            <div class="search-help-item">
+              <code>CEO OR CTO</code>
+              <span>Một trong hai từ khớp</span>
+            </div>
+            <div class="search-help-item">
+              <code>marketing NOT intern</code>
+              <span>Có "marketing" nhưng không có "intern"</span>
+            </div>
+            <div class="search-help-item">
+              <code>"product manager"</code>
+              <span>Tìm chính xác cụm từ</span>
+            </div>
+            <div class="search-help-item">
+              <code>(CEO OR CTO) AND google</code>
+              <span>Kết hợp với dấu ngoặc</span>
+            </div>
+            <div class="search-help-item">
+              <code>dev AND NOT junior</code>
+              <span>Kết hợp AND với NOT</span>
+            </div>
+          </div>
         </div>
       </div>
+    </div>
 
-      <div class="toolbar">
-        <span style="font-size:13px;font-weight:500">Recent Leads</span>
-        <div style="flex:1"></div>
-        <button class="btn btn-danger btn-bulk-delete" onclick="bulkDelete()" style="display:none;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-          Xóa <span class="bulk-count">0</span> đã chọn
-        </button>
-        <button class="btn btn-success" onclick="exportCSV()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    <div class="topbar-right d-flex align-items-center gap-3">
+      <div class="d-flex align-items-center gap-2">
+        <div class="backend-dot" id="backendDot"></div>
+        <span class="backend-label text-muted small" id="backendLabel">Connecting…</span>
+      </div>
+      <button class="btn btn-outline-danger btn-sm" onclick="logout()" id="logoutBtn" style="display:none;">Logout</button>
+      <div class="avatar" id="userAvatar">LF</div>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid p-0">
+  <div class="d-flex" style="min-height: calc(100vh - 53px);">
+    
+    <!-- SIDEBAR -->
+    <div class="sidebar flex-shrink-0 p-3" style="width: 220px; background-color: var(--bg2); border-right: 1px solid var(--border) !important;">
+      <div class="nav-section text-uppercase text-muted fw-semibold small px-2 mb-2" style="font-size: 10px; letter-spacing: 0.8px;">Main</div>
+      <div class="list-group list-group-flush mb-4">
+        <a href="#" class="nav-item active d-flex align-items-center gap-2 px-3 py-2 rounded text-decoration-none" onclick="showPage('dashboard')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Dashboard
+        </a>
+        <a href="#" class="nav-item d-flex align-items-center gap-2 px-3 py-2 rounded text-decoration-none" onclick="showPage('leads')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          All Leads
+          <span class="badge rounded-pill bg-secondary ms-auto" id="navCount">0</span>
+        </a>
+        <a href="#" class="nav-item d-flex align-items-center gap-2 px-3 py-2 rounded text-decoration-none" onclick="showPage('facebook')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+          Facebook Posts
+          <span class="badge rounded-pill ms-auto" id="navCountFb" style="background:#00A4FF">0</span>
+        </a>
+        <a href="#" class="nav-item d-flex align-items-center gap-2 px-3 py-2 rounded text-decoration-none" onclick="showPage('lkposts')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+          LinkedIn Posts
+          <span class="badge rounded-pill ms-auto" id="navCountLk" style="background:#0A66C2">0</span>
+        </a>
+      </div>
+
+      <div class="nav-section text-uppercase text-muted fw-semibold small px-2 mb-2" style="font-size: 10px; letter-spacing: 0.8px;">Actions</div>
+      <div class="list-group list-group-flush mb-4">
+        <a href="#" class="nav-item d-flex align-items-center gap-2 px-3 py-2 rounded text-decoration-none" onclick="exportCSV()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export CSV
-        </button>
-        <button class="btn btn-danger" onclick="clearAll()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-          Clear all
-        </button>
+        </a>
+        <a href="#" class="nav-item d-flex align-items-center gap-2 px-3 py-2 rounded text-decoration-none" onclick="showPage('import')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Import JSON
+        </a>
       </div>
 
-      <div class="table-wrap">
-        <div class="table-scroll">
-          <table>
-            <thead><tr>
-              <th style="width:30px"><input type="checkbox" class="select-all" onchange="toggleSelectAll(this, 'dashTable')"></th>
-              <th>Name</th><th>Position</th><th>Company</th><th>Location</th><th>Email</th><th>Status</th><th>Actions</th>
-            </tr></thead>
-            <tbody id="dashTable"></tbody>
-          </table>
-        </div>
+      <div class="nav-section text-uppercase text-muted fw-semibold small px-2 mb-2" style="font-size: 10px; letter-spacing: 0.8px;">System</div>
+      <div class="list-group list-group-flush mb-4">
+        <a href="#" class="nav-item d-flex align-items-center gap-2 px-3 py-2 rounded text-decoration-none" onclick="showPage('dupes')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16v-1a2 2 0 0 1 2-2h1"/><path d="M4 12V5a2 2 0 0 1 2-2h7"/></svg>
+          Duplicates
+        </a>
+        <a href="#" class="nav-item d-flex align-items-center gap-2 px-3 py-2 rounded text-decoration-none" onclick="showPage('settings')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>
+          Settings
+        </a>
       </div>
     </div>
 
-    <!-- ALL LEADS -->
-    <div class="page" id="page-leads">
-      <div class="toolbar">
-        <span style="font-size:13px;font-weight:500">All Leads</span>
-        <div class="toolbar-left">
-          <select class="filter-select" id="filterStatus" onchange="renderLeadsPage()">
-            <option value="">All statuses</option>
-            <option value="new">New</option>
-            <option value="verified">Verified</option>
-            <option value="duplicate">Duplicate</option>
-          </select>
-        </div>
-        <button class="btn btn-danger btn-bulk-delete" onclick="bulkDelete()" style="display:none; margin-right: 8px;">
-          Xóa <span class="bulk-count">0</span> đã chọn
-        </button>
-        <button class="btn btn-success" onclick="exportCSV()">⬇ Export CSV</button>
-      </div>
-      <div class="table-wrap">
-        <div class="table-scroll">
-          <table>
-            <thead><tr>
-              <th style="width:30px"><input type="checkbox" class="select-all" onchange="toggleSelectAll(this, 'leadsTable')"></th>
-              <th>Name</th><th>Position</th><th>Company</th><th>Email</th><th>LinkedIn</th><th>Status</th><th>Date</th><th>Crawled By</th><th>Actions</th>
-            </tr></thead>
-            <tbody id="leadsTable"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    <!-- MAIN CONTENT -->
+    <main class="flex-grow-1 p-4" style="background-color: var(--bg); overflow-x: hidden;">
 
-    <!-- FACEBOOK POSTS -->
-    <div class="page" id="page-facebook">
-      <div class="toolbar">
-        <span style="font-size:13px;font-weight:500">Facebook Posts</span>
-        <div style="flex:1"></div>
-        <button class="btn btn-danger btn-bulk-delete-fb" onclick="bulkDeleteFb()" style="display:none; margin-right: 8px;">
-          Xóa <span class="bulk-count-fb">0</span> đã chọn
-        </button>
-        <button class="btn btn-danger" onclick="clearAllFb()">Clear all FB</button>
-      </div>
-      <div class="table-wrap">
-        <div class="table-scroll">
-          <table>
-            <thead><tr>
-              <th style="width:30px"><input type="checkbox" class="select-all" onchange="toggleSelectAllFb(this)"></th>
-              <th style="width:15%">Author</th><th style="width:15%">Group</th><th style="width:30%">Content Snippet</th><th style="width:10%">Link</th><th style="width:10%">Date</th><th style="width:10%">Crawled By</th><th style="width:10%">Actions</th>
-            </tr></thead>
-            <tbody id="facebookTable"></tbody>
-          </table>
+      <!-- DASHBOARD PAGE -->
+      <div class="page active" id="page-dashboard">
+        <div class="row g-3 mb-4" id="statsRow">
+          <div class="col-6 col-md-4 col-xl-2">
+            <div class="card stat-card border h-100">
+              <div class="card-body p-3 d-flex flex-column justify-content-between">
+                <div class="stat-label text-muted small mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Total Leads</div>
+                <h3 class="card-title h3 fw-bold mb-1" id="statTotal">—</h3>
+                <span class="stat-sub text-muted small" style="font-size:10px;">All time</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-4 col-xl-2">
+            <div class="card stat-card border h-100">
+              <div class="card-body p-3 d-flex flex-column justify-content-between">
+                <div class="stat-label text-muted small mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><polyline points="20 6 9 17 4 12"/></svg> Verified</div>
+                <h3 class="card-title h3 fw-bold mb-1" id="statVerified" style="color:var(--green)">—</h3>
+                <span class="stat-sub text-muted small" id="statVerRate" style="font-size:10px;">—</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-4 col-xl-2">
+            <div class="card stat-card border h-100">
+              <div class="card-body p-3 d-flex flex-column justify-content-between">
+                <div class="stat-label text-muted small mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16v-1a2 2 0 0 1 2-2h1"/><path d="M4 12V5a2 2 0 0 1 2-2h7"/></svg> Duplicates</div>
+                <h3 class="card-title h3 fw-bold mb-1" id="statDupes" style="color:var(--amber)">—</h3>
+                <span class="stat-sub text-muted small" style="font-size:10px;">Auto-detected</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-4 col-xl-2">
+            <div class="card stat-card border h-100">
+              <div class="card-body p-3 d-flex flex-column justify-content-between">
+                <div class="stat-label text-muted small mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> New</div>
+                <h3 class="card-title h3 fw-bold mb-1" id="statNew" style="color:var(--accent)">—</h3>
+                <span class="stat-sub text-muted small" style="font-size:10px;">Pending review</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-4 col-xl-2">
+            <div class="card stat-card border h-100">
+              <div class="card-body p-3 d-flex flex-column justify-content-between">
+                <div class="stat-label text-muted small mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg> FB Posts</div>
+                <h3 class="card-title h3 fw-bold mb-1" id="statFbPosts" style="color:#00A4FF">—</h3>
+                <span class="stat-sub text-muted small" style="font-size:10px;">Facebook</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-4 col-xl-2">
+            <div class="card stat-card border h-100">
+              <div class="card-body p-3 d-flex flex-column justify-content-between">
+                <div class="stat-label text-muted small mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg> LK Posts</div>
+                <h3 class="card-title h3 fw-bold mb-1" id="statLkPosts" style="color:#0A66C2">—</h3>
+                <span class="stat-sub text-muted small" style="font-size:10px;">LinkedIn</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+          <h5 class="m-0 fw-semibold text-dark fs-6">Recent Leads</h5>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-danger d-flex align-items-center gap-1 btn-bulk-delete btn-sm" onclick="bulkDelete()" style="display:none;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+              Xóa <span class="bulk-count">0</span> đã chọn
+            </button>
+            <button class="btn btn-success d-flex align-items-center gap-1 btn-sm" onclick="exportCSV()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export CSV
+            </button>
+            <button class="btn btn-outline-danger d-flex align-items-center gap-1 btn-sm" onclick="clearAll()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+              Clear all
+            </button>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm overflow-hidden mb-4" style="background-color: var(--bg2) !important; border: 1px solid var(--border) !important;">
+          <div class="table-responsive" style="max-height: calc(100vh - 320px);">
+            <table class="table table-hover align-middle mb-0" style="--bs-table-bg: transparent;">
+              <thead>
+                <tr>
+                  <th style="width:40px"><input type="checkbox" class="form-check-input select-all" onchange="toggleSelectAll(this, 'dashTable')"></th>
+                  <th>Name</th><th>Position</th><th>Company</th><th>Location</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="dashTable"></tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- IMPORT -->
-    <div class="page" id="page-import">
-      <span style="font-size:13px;font-weight:500">Import Leads</span>
-      <div class="import-box">
-        <p>Paste JSON array of leads, or use the Chrome extension to crawl LinkedIn directly.</p>
-        <textarea id="importJson" placeholder='[{"name":"John Doe","title":"CEO","company":"Acme","email":"john@acme.com","linkedin_url":"https://linkedin.com/in/johndoe"}]'></textarea>
-        <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
-          <button class="btn btn-primary" onclick="importJSON()">⬆ Import JSON</button>
-          <button class="btn" onclick="document.getElementById('importJson').value=''">Clear</button>
+      <!-- ALL LEADS PAGE -->
+      <div class="page" id="page-leads">
+        <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+          <div class="d-flex align-items-center gap-3">
+            <h5 class="m-0 fw-semibold text-dark fs-6">All Leads</h5>
+            <select class="form-select form-select-sm" id="filterStatus" onchange="renderLeadsPage()" style="width:160px; background-color: var(--bg3) !important; color: var(--text) !important; border-color: var(--border) !important;">
+              <option value="">All statuses</option>
+              <option value="new">New</option>
+              <option value="verified">Verified</option>
+              <option value="duplicate">Duplicate</option>
+            </select>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-danger d-flex align-items-center gap-1 btn-bulk-delete btn-sm" onclick="bulkDelete()" style="display:none;">
+              Xóa <span class="bulk-count">0</span> đã chọn
+            </button>
+            <button class="btn btn-success btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm overflow-hidden mb-4" style="background-color: var(--bg2) !important; border: 1px solid var(--border) !important;">
+          <div class="table-responsive" style="max-height: calc(100vh - 220px);">
+            <table class="table table-hover align-middle mb-0" style="--bs-table-bg: transparent;">
+              <thead>
+                <tr>
+                  <th style="width:40px"><input type="checkbox" class="form-check-input select-all" onchange="toggleSelectAll(this, 'leadsTable')"></th>
+                  <th>Name</th><th>Position</th><th>Company</th><th>Email</th><th>Phone</th><th>LinkedIn</th><th>Status</th><th>Date</th><th>Crawled By</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="leadsTable"></tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- DUPLICATES -->
-    <div class="page" id="page-dupes">
-      <div class="toolbar">
-        <span style="font-size:13px;font-weight:500">Duplicates</span>
-        <div style="flex:1"></div>
-        <span style="font-size:11px;color:var(--muted)">Leads with same email or LinkedIn URL</span>
-      </div>
-      <div class="table-wrap">
-        <div class="table-scroll">
-          <table>
-            <thead><tr>
-              <th>Name</th><th>Company</th><th>Email</th><th>LinkedIn URL</th><th>Actions</th>
-            </tr></thead>
-            <tbody id="dupesTable"></tbody>
-          </table>
+      <!-- FACEBOOK POSTS PAGE -->
+      <div class="page" id="page-facebook">
+        <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+          <h5 class="m-0 fw-semibold text-dark fs-6">Facebook Posts</h5>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-danger d-flex align-items-center gap-1 btn-bulk-delete-fb btn-sm" onclick="bulkDeleteFb()" style="display:none;">
+              Xóa <span class="bulk-count-fb">0</span> đã chọn
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="clearAllFb()">Clear all FB</button>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm overflow-hidden mb-4" style="background-color: var(--bg2) !important; border: 1px solid var(--border) !important;">
+          <div class="table-responsive" style="max-height: calc(100vh - 220px);">
+            <table class="table table-hover align-middle mb-0" style="--bs-table-bg: transparent;">
+              <thead>
+                <tr>
+                  <th style="width:40px"><input type="checkbox" class="form-check-input select-all" onchange="toggleSelectAllFb(this)"></th>
+                  <th style="width:15%">Author</th><th style="width:15%">Group</th><th style="width:30%">Content Snippet</th><th style="width:10%">Link</th><th style="width:10%">Date</th><th style="width:10%">Crawled By</th><th style="width:10%">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="facebookTable"></tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- SETTINGS -->
-    <div class="page" id="page-settings">
-      <span style="font-size:13px;font-weight:500">Settings</span>
-      <div class="settings-card">
-
-        <div class="settings-row">
-          <div><div class="settings-label">Auto-refresh</div><div class="settings-sub">Refresh data every N seconds (0 = off)</div></div>
-          <input class="settings-input" id="settingRefresh" type="number" value="5" min="0" onchange="saveSettings()">
+      <!-- LINKEDIN POSTS PAGE -->
+      <div class="page" id="page-lkposts">
+        <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+          <h5 class="m-0 fw-semibold text-dark fs-6">LinkedIn Posts</h5>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-danger d-flex align-items-center gap-1 btn-bulk-delete-lk btn-sm" onclick="bulkDeleteLkPosts()" style="display:none;">
+              Xóa <span class="bulk-count-lk">0</span> đã chọn
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="clearAllLkPosts()">Clear all LK</button>
+          </div>
         </div>
-        <div class="settings-row">
-          <div><div class="settings-label">Backend status</div></div>
-          <span id="settingStatus" style="font-size:12px;color:var(--muted)">Checking…</span>
+
+        <div class="card border-0 shadow-sm overflow-hidden mb-4" style="background-color: var(--bg2) !important; border: 1px solid var(--border) !important;">
+          <div class="table-responsive" style="max-height: calc(100vh - 220px);">
+            <table class="table table-hover align-middle mb-0" style="--bs-table-bg: transparent;">
+              <thead>
+                <tr>
+                  <th style="width:40px"><input type="checkbox" class="form-check-input select-all" onchange="toggleSelectAllLk(this)"></th>
+                  <th style="width:14%">Author</th><th style="width:14%">Headline</th><th style="width:28%">Content</th><th style="width:7%">Type</th><th style="width:7%">Reactions</th><th style="width:7%">Link</th><th style="width:8%">Date</th><th style="width:8%">Crawled By</th><th style="width:7%">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="lkPostsTable"></tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
 
+      <!-- IMPORT PAGE -->
+      <div class="page" id="page-import">
+        <h5 class="mb-3 fw-semibold text-dark fs-6">Import Leads</h5>
+        <div class="card border p-4 text-center" style="background-color: var(--bg2) !important; border: 1px dashed var(--border2) !important; border-radius: var(--radius);">
+          <p class="text-muted">Paste JSON array of leads, or use the Chrome extension to crawl LinkedIn directly.</p>
+          <textarea class="form-control font-monospace mt-3 p-3" id="importJson" rows="6" placeholder='[{"name":"John Doe","title":"CEO","company":"Acme","email":"john@acme.com","linkedin_url":"https://linkedin.com/in/johndoe"}]' style="background-color: var(--bg3); color: var(--text); border-color: var(--border); font-size:12px;"></textarea>
+          <div class="mt-4 d-flex justify-content-center gap-2">
+            <button class="btn btn-primary btn-sm px-4" onclick="importJSON()">⬆ Import JSON</button>
+            <button class="btn btn-outline-secondary btn-sm px-4" onclick="document.getElementById('importJson').value=''">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- DUPLICATES PAGE -->
+      <div class="page" id="page-dupes">
+        <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+          <h5 class="m-0 fw-semibold text-dark fs-6">Duplicates</h5>
+          <span class="text-muted small">Leads with same email or LinkedIn URL</span>
+        </div>
+
+        <div class="card border-0 shadow-sm overflow-hidden mb-4" style="background-color: var(--bg2) !important; border: 1px solid var(--border) !important;">
+          <div class="table-responsive" style="max-height: calc(100vh - 220px);">
+            <table class="table table-hover align-middle mb-0" style="--bs-table-bg: transparent;">
+              <thead>
+                <tr>
+                  <th>Name</th><th>Company</th><th>Email</th><th>Phone</th><th>LinkedIn URL</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="dupesTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS PAGE -->
+      <div class="page" id="page-settings">
+        <h5 class="mb-3 fw-semibold text-dark fs-6">Settings</h5>
+        <div class="card border p-4" style="background-color: var(--bg2) !important; border: 1px solid var(--border) !important; border-radius: var(--radius);">
+          <div class="row align-items-center py-2 border-bottom border-secondary mb-3 pb-3">
+            <div class="col-8">
+              <div class="fw-semibold text-dark">Auto-refresh</div>
+              <div class="text-muted small">Refresh data every N seconds (0 = off)</div>
+            </div>
+            <div class="col-4">
+              <input class="form-control form-control-sm" id="settingRefresh" type="number" value="5" min="0" onchange="saveSettings()" style="background-color: var(--bg3); color: var(--text); border-color: var(--border); max-width: 200px; float: right;">
+            </div>
+          </div>
+          <div class="row align-items-center py-2">
+            <div class="col-8">
+              <div class="fw-semibold text-dark">Backend status</div>
+            </div>
+            <div class="col-4 text-end">
+              <span id="settingStatus" class="fw-medium" style="color:var(--muted)">Checking…</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
   </div>
 </div>
 
 <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script src="config.js"></script>
 <script src="auth.js"></script>
 <script src="script.js"></script>
 </body>
