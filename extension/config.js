@@ -2,7 +2,7 @@
 if (typeof CONFIG === "undefined") {
   window.CONFIG = {
     // Set to true to use localhost, false to use production domain (https://crawllead.onrender.com)
-    USE_LOCALHOST: true,
+    USE_LOCALHOST: false,
 
     API_LOCAL: "http://localhost:5000",
     API_PROD: "https://crawllead.onrender.com",

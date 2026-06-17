@@ -342,37 +342,47 @@ function extractSearchResults() {
  */
 async function sendLeads(leads) {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['jwt_token'], (res) => {
-      const token = res.jwt_token || "";
-      chrome.runtime.sendMessage({
-        action: "fetch_api",
-        url: `${BACKEND_URL}api/leads`,
-        options: {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-          },
-          body: JSON.stringify(leads)
-        }
-      }, (response) => {
-        if (chrome.runtime.lastError || !response) {
-          console.error("[LeadFinder] Backend unreachable or communication error");
+    try {
+      chrome.storage.local.get(['jwt_token'], (res) => {
+        if (chrome.runtime.lastError) {
+          console.error("[LeadFinder] Extension đã reload — hãy refresh trang (F5)");
           resolve(null);
           return;
         }
-        if (!response.ok) {
-          if (response.status === 401) {
-            console.error("[LeadFinder] Unauthorized. Please login from the extension popup.");
-          } else {
-            console.error("[LeadFinder] Backend error:", response.error || response.status);
+        const token = res.jwt_token || "";
+        chrome.runtime.sendMessage({
+          action: "fetch_api",
+          url: `${BACKEND_URL}api/leads`,
+          options: {
+            method: "POST",
+            headers: { 
+              "Content-Type": "application/json",
+              "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify(leads)
           }
-          resolve(null);
-          return;
-        }
-        resolve(response.data);
+        }, (response) => {
+          if (chrome.runtime.lastError || !response) {
+            console.error("[LeadFinder] Backend unreachable or communication error");
+            resolve(null);
+            return;
+          }
+          if (!response.ok) {
+            if (response.status === 401) {
+              console.error("[LeadFinder] Unauthorized. Please login from the extension popup.");
+            } else {
+              console.error("[LeadFinder] Backend error:", response.error || response.status);
+            }
+            resolve(null);
+            return;
+          }
+          resolve(response.data);
+        });
       });
-    });
+    } catch (e) {
+      console.error("[LeadFinder] Extension context invalidated — hãy refresh trang (F5)");
+      resolve(null);
+    }
   });
 }
 
@@ -689,10 +699,16 @@ async function crawlSearch(withEmail) {
           resolve();
         };
 
-        chrome.runtime.sendMessage(
-          { action: "open_profile_get_email", url: lead.linkedin_url },
-          done
-        );
+        try {
+          chrome.runtime.sendMessage(
+            { action: "open_profile_get_email", url: lead.linkedin_url },
+            done
+          );
+        } catch (e) {
+          console.error("[LeadFinder] Extension context invalidated — hãy refresh trang (F5)");
+          settled = true;
+          resolve();
+        }
 
         setTimeout(() => done(null), 35000); // Tăng lên 35s vì Chrome bóp băng thông tab ngầm
       });
