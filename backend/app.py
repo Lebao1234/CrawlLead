@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import json, csv, os, io, re
 from datetime import datetime, timedelta
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import mimetypes
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -262,11 +264,75 @@ def stats():
     
     return jsonify({"total": total, "verified": verified, "duplicates": dupes, "new": new, "lk_posts": lk_posts, "fb_posts": fb_posts})
 
+@app.route("/api/crawlers", methods=["GET"])
+def get_crawlers():
+    """Trả về danh sách tất cả người thu thập (crawled_by) duy nhất từ collection Linkedin"""
+    crawlers = leads_collection.distinct("crawled_by")
+    # Lọc bỏ giá trị None/rỗng
+    crawlers = [c for c in crawlers if c]
+    crawlers.sort()
+    return jsonify({"crawlers": crawlers})
+
+def _format_lead_row(lead):
+    """Helper: format một lead thành row data cho export CSV/XLSX"""
+    position = lead.get("position") or lead.get("title") or ""
+    
+    created_at_raw = lead.get("created_at") or ""
+    created_at_nice = ""
+    if created_at_raw:
+        try:
+            clean_dt = created_at_raw.split(".")[0]
+            dt = datetime.fromisoformat(clean_dt)
+            created_at_nice = dt.strftime("%d/%m/%Y %H:%M:%S")
+        except Exception:
+            created_at_nice = created_at_raw
+    
+    status_map = {
+        "new": "Mới",
+        "verified": "Đã xác minh",
+        "contacted": "Đã liên hệ",
+        "interested": "Quan tâm",
+        "not_interested": "Không quan tâm",
+        "duplicate": "Trùng lặp"
+    }
+    status_raw = lead.get("status") or "new"
+    status_nice = status_map.get(status_raw, status_raw)
+    
+    return [
+        lead.get("name") or "",
+        position,
+        lead.get("company") or "",
+        lead.get("email") or "",
+        lead.get("phone") or "",
+        lead.get("location") or "",
+        lead.get("linkedin_url") or "",
+        status_nice,
+        created_at_nice,
+        lead.get("crawled_by") or ""
+    ]
+
+EXPORT_HEADERS = [
+    "Họ và Tên",
+    "Chức vụ",
+    "Công ty",
+    "Email",
+    "Số điện thoại",
+    "Địa điểm",
+    "LinkedIn URL",
+    "Trạng thái",
+    "Ngày thu thập",
+    "Người thu thập"
+]
+
+def _get_filtered_leads(crawled_by=None):
+    """Lấy leads từ DB, lọc theo crawled_by nếu có"""
+    query = {}
+    if crawled_by:
+        query["crawled_by"] = crawled_by
+    return list(leads_collection.find(query, {"_id": 0}))
+
 @app.route("/api/export/csv", methods=["GET"])
 def export_csv():
-    # Exporting CSV through browser might not send token easily via header. 
-    # Usually we pass token in query param or rely on session.
-    # For simplicity, we can get token from query arg: ?token=...
     token = request.args.get('token')
     if not token:
         return jsonify({'error': 'Token is missing'}), 401
@@ -275,77 +341,109 @@ def export_csv():
     except:
         return jsonify({'error': 'Token is invalid'}), 401
 
-    leads = get_all_leads_from_db()
+    crawled_by = request.args.get('crawled_by', '').strip()
+    leads = _get_filtered_leads(crawled_by if crawled_by else None)
     if not leads:
         return jsonify({"error": "No leads"}), 400
     
     output = io.StringIO()
-    output.write("sep=,\r\n") # Chỉ thị cho Excel nhận biết dấu phân cách cột là dấu phẩy (,)
+    output.write("sep=,\r\n")
     writer = csv.writer(output, lineterminator='\r\n')
-    
-    # Tiêu đề cột tiếng Việt rõ ràng, chuyên nghiệp cho Excel
-    headers = [
-        "Họ và Tên",
-        "Chức vụ",
-        "Công ty",
-        "Email",
-        "Số điện thoại",
-        "Địa điểm",
-        "LinkedIn URL",
-        "Trạng thái",
-        "Ngày thu thập",
-        "Người thu thập"
-    ]
-    writer.writerow(headers)
+    writer.writerow(EXPORT_HEADERS)
     
     for lead in leads:
-        # Lấy chức vụ từ cả 'position' và 'title' (đảm bảo không bị trống cột Chức vụ)
-        position = lead.get("position") or lead.get("title") or ""
-        
-        # Định dạng lại ngày thu thập cho đẹp và dễ đọc (DD/MM/YYYY HH:MM:SS)
-        created_at_raw = lead.get("created_at") or ""
-        created_at_nice = ""
-        if created_at_raw:
-            try:
-                # Bỏ phần miliseconds nếu có
-                clean_dt = created_at_raw.split(".")[0]
-                dt = datetime.fromisoformat(clean_dt)
-                created_at_nice = dt.strftime("%d/%m/%Y %H:%M:%S")
-            except Exception:
-                created_at_nice = created_at_raw
-                
-        # Dịch trạng thái sang tiếng Việt
-        status_map = {
-            "new": "Mới",
-            "contacted": "Đã liên hệ",
-            "interested": "Quan tâm",
-            "not_interested": "Không quan tâm"
-        }
-        status_raw = lead.get("status") or "new"
-        status_nice = status_map.get(status_raw, status_raw)
-        
-        row = [
-            lead.get("name") or "",
-            position,
-            lead.get("company") or "",
-            lead.get("email") or "",
-            lead.get("phone") or "",
-            lead.get("location") or "",
-            lead.get("linkedin_url") or "",
-            status_nice,
-            created_at_nice,
-            lead.get("crawled_by") or ""
-        ]
-        writer.writerow(row)
+        writer.writerow(_format_lead_row(lead))
     
     output.seek(0)
-    # Encode bằng utf-8-sig để Excel mở không bị lỗi font hiển thị tiếng Việt có dấu
     file_bytes = io.BytesIO(output.getvalue().encode("utf-8-sig"))
-    filename = f"leads_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    
+    suffix = f"_{crawled_by}" if crawled_by else ""
+    filename = f"leads{suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     
     return send_file(
         file_bytes,
         mimetype="text/csv",
+        as_attachment=True,
+        download_name=filename
+    )
+
+@app.route("/api/export/xlsx", methods=["GET"])
+def export_xlsx():
+    token = request.args.get('token')
+    if not token:
+        return jsonify({'error': 'Token is missing'}), 401
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    except:
+        return jsonify({'error': 'Token is invalid'}), 401
+
+    crawled_by = request.args.get('crawled_by', '').strip()
+    leads = _get_filtered_leads(crawled_by if crawled_by else None)
+    if not leads:
+        return jsonify({"error": "No leads"}), 400
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Leads"
+    
+    # Style cho header
+    header_font = Font(name="Arial", bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="0284C7", end_color="0284C7", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin_border = Border(
+        left=Side(style="thin", color="D1D5DB"),
+        right=Side(style="thin", color="D1D5DB"),
+        top=Side(style="thin", color="D1D5DB"),
+        bottom=Side(style="thin", color="D1D5DB")
+    )
+    
+    # Ghi header
+    for col_idx, header in enumerate(EXPORT_HEADERS, 1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = thin_border
+    
+    # Style cho data rows
+    data_font = Font(name="Arial", size=10)
+    data_alignment = Alignment(vertical="center", wrap_text=False)
+    even_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+    
+    # Ghi data
+    for row_idx, lead in enumerate(leads, 2):
+        row_data = _format_lead_row(lead)
+        for col_idx, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.font = data_font
+            cell.alignment = data_alignment
+            cell.border = thin_border
+            if row_idx % 2 == 0:
+                cell.fill = even_fill
+    
+    # Auto-fit cột (ước lượng chiều rộng)
+    for col_idx, header in enumerate(EXPORT_HEADERS, 1):
+        max_len = len(header)
+        for row_idx in range(2, len(leads) + 2):
+            cell_val = str(ws.cell(row=row_idx, column=col_idx).value or "")
+            if len(cell_val) > max_len:
+                max_len = len(cell_val)
+        ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = min(max_len + 4, 50)
+    
+    # Freeze header row
+    ws.freeze_panes = "A2"
+    
+    # Lưu vào buffer
+    file_bytes = io.BytesIO()
+    wb.save(file_bytes)
+    file_bytes.seek(0)
+    
+    suffix = f"_{crawled_by}" if crawled_by else ""
+    filename = f"leads{suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    
+    return send_file(
+        file_bytes,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True,
         download_name=filename
     )

@@ -3,6 +3,7 @@ const API = () => CONFIG.API_URL;
 let allLeads = [];
 let allFbPosts = [];
 let allLkPosts = [];
+let allCrawlers = [];
 let searchQuery = "";
 let refreshTimer = null;
 
@@ -245,16 +246,23 @@ function statusPill(s) {
 }
 
 // Lọc danh sách leads dựa trên Boolean Search query
-function filtered() {
-  if (!searchQuery) return allLeads;
-  const ast = getParsedQuery();
-  if (!ast) return allLeads;
-  return allLeads.filter(l => evaluateBooleanAST(ast, leadToSearchText(l)));
+function filtered(crawledByFilterId) {
+  let result = allLeads;
+  if (searchQuery) {
+    const ast = getParsedQuery();
+    if (ast) result = result.filter(l => evaluateBooleanAST(ast, leadToSearchText(l)));
+  }
+  // Lọc theo người crawl nếu có dropdown ID
+  if (crawledByFilterId) {
+    const crawledBy = document.getElementById(crawledByFilterId)?.value || "";
+    if (crawledBy) result = result.filter(l => l.crawled_by === crawledBy);
+  }
+  return result;
 }
 
 function renderDashTable() {
   const tbody = document.getElementById("dashTable");
-  const leads = filtered().slice(0, 50);
+  const leads = filtered('filterCrawledByDash').slice(0, 50);
   if (!leads.length) { tbody.innerHTML = `<tr><td colspan="9"><div class="empty">No leads yet.<p>Install the Chrome extension and crawl LinkedIn to get started.</p></div></td></tr>`; updateBulkDeleteBtn(); return; }
   tbody.innerHTML = leads.map((l, i) => `
     <tr>
@@ -279,7 +287,7 @@ function renderDashTable() {
 function renderLeadsPage() {
   const tbody = document.getElementById("leadsTable");
   const filter = document.getElementById("filterStatus")?.value || "";
-  let leads = filtered();
+  let leads = filtered('filterCrawledBy');
   if (filter) leads = leads.filter(l => l.status === filter);
   if (!leads.length) { tbody.innerHTML = `<tr><td colspan="11"><div class="empty">No leads found.</div></td></tr>`; updateBulkDeleteBtn(); return; }
   tbody.innerHTML = leads.map(l => `
@@ -567,9 +575,29 @@ async function clearAll() {
   fetchLeads(true);
 }
 
-function exportCSV() {
+function exportCSV(crawledBy) {
   const token = localStorage.getItem('jwt_token') || "";
-  window.open(`${API()}/api/export/csv?token=${token}`, "_blank");
+  let url = `${API()}/api/export/csv?token=${token}`;
+  if (crawledBy) url += `&crawled_by=${encodeURIComponent(crawledBy)}`;
+  window.open(url, "_blank");
+}
+
+function exportXLSX(crawledBy) {
+  const token = localStorage.getItem('jwt_token') || "";
+  let url = `${API()}/api/export/xlsx?token=${token}`;
+  if (crawledBy) url += `&crawled_by=${encodeURIComponent(crawledBy)}`;
+  window.open(url, "_blank");
+}
+
+// Export theo filter dropdown đang chọn
+function exportCSVFiltered(filterId) {
+  const crawledBy = document.getElementById(filterId)?.value || "";
+  exportCSV(crawledBy);
+}
+
+function exportXLSXFiltered(filterId) {
+  const crawledBy = document.getElementById(filterId)?.value || "";
+  exportXLSX(crawledBy);
 }
 
 async function importJSON() {
@@ -603,11 +631,45 @@ function saveSettings() {
   if (secs > 0) refreshTimer = setInterval(fetchLeads, secs * 1000);
 }
 
+// ─── Crawlers (Users) ─────────────────────────────────────────
+async function fetchCrawlers() {
+  try {
+    const r = await fetch(`${API()}/api/crawlers`);
+    const d = await r.json();
+    allCrawlers = d.crawlers || [];
+    populateCrawlerDropdowns();
+  } catch {}
+}
+
+function populateCrawlerDropdowns() {
+  const dropdownIds = ['filterCrawledBy', 'filterCrawledByDash'];
+  for (const id of dropdownIds) {
+    const select = document.getElementById(id);
+    if (!select) continue;
+    // Giữ lại giá trị đang chọn
+    const currentVal = select.value;
+    // Xóa các option cũ (trừ option đầu tiên)
+    while (select.options.length > 1) select.remove(1);
+    // Thêm các crawler
+    for (const crawler of allCrawlers) {
+      const opt = document.createElement('option');
+      opt.value = crawler;
+      opt.textContent = crawler;
+      select.appendChild(opt);
+    }
+    // Khôi phục giá trị đã chọn
+    if (currentVal && allCrawlers.includes(currentVal)) {
+      select.value = currentVal;
+    }
+  }
+}
+
 // ─── Init ─────────────────────────────────────────────────────
 function fetchAllData() {
   fetchLeads();
   fetchFbPosts();
   fetchLkPosts();
+  fetchCrawlers();
 }
 
 checkAuth();
