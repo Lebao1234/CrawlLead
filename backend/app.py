@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import json, csv, os, io, re
 from datetime import datetime, timedelta
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import mimetypes
 from pymongo import MongoClient
@@ -593,6 +593,139 @@ def bulk_delete_lk_posts(current_user):
 def clear_lk_posts(current_user):
     lk_posts_collection.delete_many({})
     return jsonify({"ok": True})
+
+
+# ==========================================
+# PHẦN 5: EXPORT & IMPORT FB VÀ LK POSTS
+# ==========================================
+
+FB_EXPORT_HEADERS = ["Author", "Group", "Content Snippet", "Link", "Date", "Crawled By"]
+def _format_fb_row(p):
+    return [p.get("author") or "", p.get("group_name") or "", p.get("content_snippet") or "", p.get("post_url") or "", p.get("created_at") or "", p.get("crawled_by") or ""]
+
+LK_EXPORT_HEADERS = ["Author", "Headline", "Content Snippet", "Type", "Reactions", "Link", "Date", "Crawled By"]
+def _format_lk_row(p):
+    return [p.get("author") or "", p.get("author_headline") or "", p.get("content_snippet") or "", p.get("post_type") or "", p.get("reactions_count") or 0, p.get("post_url") or "", p.get("created_at") or "", p.get("crawled_by") or ""]
+
+def generic_export_csv(collection, headers, row_formatter, filename_prefix):
+    token = request.args.get('token')
+    if not token: return jsonify({'error': 'Token missing'}), 401
+    try: jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    except: return jsonify({'error': 'Invalid token'}), 401
+    docs = list(collection.find({}, {"_id": 0}))
+    if not docs: return jsonify({"error": "No data"}), 400
+    output = io.StringIO()
+    output.write("sep=,\r\n")
+    writer = csv.writer(output, lineterminator='\r\n')
+    writer.writerow(headers)
+    for doc in docs: writer.writerow(row_formatter(doc))
+    output.seek(0)
+    file_bytes = io.BytesIO(output.getvalue().encode("utf-8-sig"))
+    filename = f"{filename_prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return send_file(file_bytes, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+def generic_export_xlsx(collection, headers, row_formatter, filename_prefix):
+    token = request.args.get('token')
+    if not token: return jsonify({'error': 'Token missing'}), 401
+    try: jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    except: return jsonify({'error': 'Invalid token'}), 401
+    docs = list(collection.find({}, {"_id": 0}))
+    if not docs: return jsonify({"error": "No data"}), 400
+    wb = Workbook()
+    ws = wb.active
+    header_font = Font(name="Arial", bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="0284C7", end_color="0284C7", fill_type="solid")
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+    for row_idx, doc in enumerate(docs, 2):
+        for col_idx, val in enumerate(row_formatter(doc), 1):
+            ws.cell(row=row_idx, column=col_idx, value=val)
+    file_bytes = io.BytesIO()
+    wb.save(file_bytes)
+    file_bytes.seek(0)
+    filename = f"{filename_prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return send_file(file_bytes, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", as_attachment=True, download_name=filename)
+
+@app.route("/api/facebook/export/csv", methods=["GET"])
+def export_fb_csv(): return generic_export_csv(fb_collection, FB_EXPORT_HEADERS, _format_fb_row, "fb_posts")
+
+@app.route("/api/facebook/export/xlsx", methods=["GET"])
+def export_fb_xlsx(): return generic_export_xlsx(fb_collection, FB_EXPORT_HEADERS, _format_fb_row, "fb_posts")
+
+@app.route("/api/lk-posts/export/csv", methods=["GET"])
+def export_lk_csv(): return generic_export_csv(lk_posts_collection, LK_EXPORT_HEADERS, _format_lk_row, "lk_posts")
+
+@app.route("/api/lk-posts/export/xlsx", methods=["GET"])
+def export_lk_xlsx(): return generic_export_xlsx(lk_posts_collection, LK_EXPORT_HEADERS, _format_lk_row, "lk_posts")
+
+def parse_import_file(file_obj, filename, headers_map):
+    ext = filename.split('.')[-1].lower()
+    data = []
+    if ext == 'csv':
+        content = file_obj.read().decode('utf-8-sig')
+        reader = csv.DictReader(io.StringIO(content))
+        for row in reader:
+            doc = {}
+            for k, v in row.items():
+                if k in headers_map: doc[headers_map[k]] = v
+            if doc: data.append(doc)
+    elif ext == 'xlsx':
+        wb = load_workbook(file_obj, data_only=True)
+        ws = wb.active
+        headers = [cell.value for cell in ws[1]]
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            doc = {}
+            for i, val in enumerate(row):
+                if i < len(headers) and headers[i] in headers_map: doc[headers_map[headers[i]]] = val
+            if doc: data.append(doc)
+    return data
+
+@app.route("/api/facebook/import", methods=["POST"])
+@token_required
+def import_fb(current_user):
+    if 'file' not in request.files: return jsonify({"error": "No file uploaded"}), 400
+    file = request.files['file']
+    if not file.filename.endswith(('.csv', '.xlsx')): return jsonify({"error": "Invalid file type"}), 400
+    try:
+        data = parse_import_file(file, file.filename, {v: k for k, v in zip(FB_EXPORT_HEADERS, ["author", "group_name", "content_snippet", "post_url", "created_at", "crawled_by"])})
+        added, dupes = 0, 0
+        for post in data:
+            post["crawled_by"] = current_user["username"]
+            if not post.get("created_at"): post["created_at"] = datetime.now().isoformat()
+            query = {"post_url": post["post_url"]} if post.get("post_url") else None
+            existing = fb_collection.find_one(query) if query else None
+            if existing: dupes += 1
+            else:
+                fb_collection.insert_one(post)
+                added += 1
+        return jsonify({"added": added, "duplicates": dupes})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/lk-posts/import", methods=["POST"])
+@token_required
+def import_lk(current_user):
+    if 'file' not in request.files: return jsonify({"error": "No file uploaded"}), 400
+    file = request.files['file']
+    if not file.filename.endswith(('.csv', '.xlsx')): return jsonify({"error": "Invalid file type"}), 400
+    try:
+        data = parse_import_file(file, file.filename, {v: k for k, v in zip(LK_EXPORT_HEADERS, ["author", "author_headline", "content_snippet", "post_type", "reactions_count", "post_url", "created_at", "crawled_by"])})
+        added, dupes = 0, 0
+        for post in data:
+            post["crawled_by"] = current_user["username"]
+            if not post.get("created_at"): post["created_at"] = datetime.now().isoformat()
+            query = {"post_url": post["post_url"]} if post.get("post_url") else None
+            existing = lk_posts_collection.find_one(query) if query else None
+            if existing: dupes += 1
+            else:
+                lk_posts_collection.insert_one(post)
+                added += 1
+        return jsonify({"added": added, "duplicates": dupes})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

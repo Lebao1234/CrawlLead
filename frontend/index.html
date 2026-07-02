@@ -277,6 +277,14 @@
             <button class="btn btn-danger d-flex align-items-center gap-1 btn-bulk-delete-fb btn-sm" onclick="bulkDeleteFb()" style="display:none;">
               Xóa <span class="bulk-count-fb">0</span> đã chọn
             </button>
+            <div class="btn-group">
+              <button class="btn btn-success btn-sm" onclick="exportFbCSV()">⬇ CSV</button>
+              <button class="btn btn-primary btn-sm" onclick="exportFbXLSX()">⬇ XLSX</button>
+            </div>
+            <label class="btn btn-secondary btn-sm mb-0">
+              ⬆ Import
+              <input type="file" accept=".csv, .xlsx" style="display:none;" onchange="importFbFile(this)">
+            </label>
             <button class="btn btn-outline-danger btn-sm" onclick="clearAllFb()">Clear all FB</button>
           </div>
         </div>
@@ -304,6 +312,14 @@
             <button class="btn btn-danger d-flex align-items-center gap-1 btn-bulk-delete-lk btn-sm" onclick="bulkDeleteLkPosts()" style="display:none;">
               Xóa <span class="bulk-count-lk">0</span> đã chọn
             </button>
+            <div class="btn-group">
+              <button class="btn btn-success btn-sm" onclick="exportLkCSV()">⬇ CSV</button>
+              <button class="btn btn-primary btn-sm" onclick="exportLkXLSX()">⬇ XLSX</button>
+            </div>
+            <label class="btn btn-secondary btn-sm mb-0">
+              ⬆ Import
+              <input type="file" accept=".csv, .xlsx" style="display:none;" onchange="importLkFile(this)">
+            </label>
             <button class="btn btn-outline-danger btn-sm" onclick="clearAllLkPosts()">Clear all LK</button>
           </div>
         </div>

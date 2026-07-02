@@ -578,15 +578,91 @@ async function clearAll() {
 function exportCSV(crawledBy) {
   const token = localStorage.getItem('jwt_token') || "";
   let url = `${API()}/api/export/csv?token=${token}`;
-  if (crawledBy) url += `&crawled_by=${encodeURIComponent(crawledBy)}`;
+  if (typeof crawledBy === 'string' && crawledBy) url += `&crawled_by=${encodeURIComponent(crawledBy)}`;
   window.open(url, "_blank");
 }
 
 function exportXLSX(crawledBy) {
   const token = localStorage.getItem('jwt_token') || "";
   let url = `${API()}/api/export/xlsx?token=${token}`;
-  if (crawledBy) url += `&crawled_by=${encodeURIComponent(crawledBy)}`;
+  if (typeof crawledBy === 'string' && crawledBy) url += `&crawled_by=${encodeURIComponent(crawledBy)}`;
   window.open(url, "_blank");
+}
+
+// ─── Export & Import cho Facebook ──────────────────────────────
+function exportFbCSV() {
+  const token = localStorage.getItem('jwt_token') || "";
+  window.open(`${API()}/api/facebook/export/csv?token=${token}`, "_blank");
+}
+
+function exportFbXLSX() {
+  const token = localStorage.getItem('jwt_token') || "";
+  window.open(`${API()}/api/facebook/export/xlsx?token=${token}`, "_blank");
+}
+
+async function importFbFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append("file", file);
+  
+  const token = localStorage.getItem('jwt_token') || "";
+  toast("Đang import Facebook posts...");
+  try {
+    const r = await fetch(`${API()}/api/facebook/import`, {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + token },
+      body: formData
+    });
+    const res = await r.json();
+    if (r.ok) {
+      toast(`Đã import thành công ${res.added} posts, bỏ qua ${res.duplicates} trùng lặp.`);
+      fetchFbPosts(true);
+    } else {
+      toast(res.error || "Lỗi import", "error");
+    }
+  } catch(e) {
+    toast("Lỗi kết nối", "error");
+  }
+  input.value = "";
+}
+
+// ─── Export & Import cho LinkedIn ──────────────────────────────
+function exportLkCSV() {
+  const token = localStorage.getItem('jwt_token') || "";
+  window.open(`${API()}/api/lk-posts/export/csv?token=${token}`, "_blank");
+}
+
+function exportLkXLSX() {
+  const token = localStorage.getItem('jwt_token') || "";
+  window.open(`${API()}/api/lk-posts/export/xlsx?token=${token}`, "_blank");
+}
+
+async function importLkFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append("file", file);
+  
+  const token = localStorage.getItem('jwt_token') || "";
+  toast("Đang import LinkedIn posts...");
+  try {
+    const r = await fetch(`${API()}/api/lk-posts/import`, {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + token },
+      body: formData
+    });
+    const res = await r.json();
+    if (r.ok) {
+      toast(`Đã import thành công ${res.added} posts, bỏ qua ${res.duplicates} trùng lặp.`);
+      fetchLkPosts(true);
+    } else {
+      toast(res.error || "Lỗi import", "error");
+    }
+  } catch(e) {
+    toast("Lỗi kết nối", "error");
+  }
+  input.value = "";
 }
 
 // Export theo filter dropdown đang chọn
