@@ -274,22 +274,72 @@ function extractFromFeedItem(el, groupName, cleanKeyword, idx) {
   // ── URL bài đăng ───────────────────────────────────────
   let postUrl = "";
   const postLinks = el.querySelectorAll('a[href]');
+  
+  // Mức độ ưu tiên để lấy link bài:
+  // 1. post, permalink, story_fbid
+  // 2. video, watch, reel
+  // 3. photo, fbid
+  let bestLink = "";
+  let linkPriority = 99;
+
   for (const a of postLinks) {
-    const href = a.href || "";
-    if (href.match(/\/(posts|permalink|videos)\/\d/)) {
-      postUrl = href.split('?')[0];
-      break;
+    let href = a.href || "";
+    
+    // Clean up facebook tracking redirect "l.php?u=..."
+    if (href.includes("l.facebook.com/l.php") || href.includes("lm.facebook.com/l.php")) {
+       try {
+           const urlObj = new URL(href);
+           if (urlObj.searchParams.has("u")) {
+               href = decodeURIComponent(urlObj.searchParams.get("u"));
+           }
+       } catch(e) {}
+    }
+
+    // Skip external links
+    if (href && !href.includes("facebook.com") && !href.startsWith("/") && !href.includes("fb.watch")) continue;
+    
+    // Bỏ qua link user profile/groups base
+    if (href.includes("/user/") && !href.match(/\/(posts|permalink)\//)) continue;
+    if (href.includes("profile.php") && !href.includes("fbid=") && !href.includes("story_fbid=")) continue;
+
+    let currentPriority = 99;
+    if (href.match(/\/(posts|permalink)\//) || href.includes("story_fbid=") || href.includes("multi_permalinks=")) {
+        currentPriority = 1;
+    } else if (href.match(/\/(videos|watch|reel|reels)\//)) {
+        currentPriority = 2;
+    } else if (href.match(/\/(photo|photos)\//) || href.includes("fbid=")) {
+        currentPriority = 3;
+    } else if (href.match(/\/\d{10,}/)) {
+        currentPriority = 4;
+    }
+
+    if (currentPriority < linkPriority) {
+        linkPriority = currentPriority;
+        bestLink = href;
     }
   }
-  if (!postUrl) {
-    for (const a of postLinks) {
-      const href = a.href || "";
-      if (href.includes("facebook.com") && href.match(/\/\d{10,}/)) {
-        postUrl = href.split('?')[0];
-        break;
+
+  if (bestLink) {
+      try {
+        const urlObj = new URL(bestLink.startsWith("/") ? window.location.origin + bestLink : bestLink);
+        const searchParams = urlObj.searchParams;
+        const newParams = new URLSearchParams();
+        const keepParams = ['fbid', 'story_fbid', 'id', 'v', 'multi_permalinks', 'set'];
+        let hasKeepParams = false;
+        
+        keepParams.forEach(p => {
+          if (searchParams.has(p)) {
+            newParams.set(p, searchParams.get(p));
+            hasKeepParams = true;
+          }
+        });
+        
+        postUrl = urlObj.origin + urlObj.pathname + (hasKeepParams ? '?' + newParams.toString() : '');
+      } catch (e) {
+        postUrl = bestLink.split('?')[0];
       }
-    }
   }
+
   if (!postUrl) postUrl = window.location.href + "#post-" + idx;
 
   // ── Lọc keyword (AND logic: tất cả từ phải xuất hiện, không cần liền nhau) ──
