@@ -275,8 +275,10 @@ function extractLinkedInPosts(keyword = "") {
   console.log(`[LeadFinder] ═══════════════════════════════════════`);
   console.log(`[LeadFinder] LinkedIn Posts Crawl | Keyword: "${cleanKeyword || '(tất cả)'}"`);
 
-  // Tìm post containers
-  const containers = document.querySelectorAll('div.feed-shared-update-v2, div[data-urn*="activity"]');
+  // Tìm post containers bằng cả class lẫn thuộc tính ARIA/data-attribute để chống rách DOM
+  const containers = document.querySelectorAll(
+    'div.feed-shared-update-v2, div[data-urn*="activity"], [data-activity-id], div[class*="update-v2"], [data-id*="activity"]'
+  );
 
   if (!containers || containers.length === 0) {
     console.log(`[LeadFinder] ❌ Không tìm thấy bài đăng nào trên trang`);
@@ -361,6 +363,12 @@ async function sendLkPosts(posts) {
             resolve(null);
             return;
           }
+          try {
+            const bc = new BroadcastChannel('crawllead_data_sync');
+            bc.postMessage({ type: 'REFRESH_DATA' });
+            bc.close();
+          } catch (e) {}
+          try { localStorage.setItem('crawllead_last_update', Date.now().toString()); } catch (e) {}
           resolve(response.data);
         });
       });

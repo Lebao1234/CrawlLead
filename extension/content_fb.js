@@ -452,6 +452,12 @@ async function sendFbPosts(posts) {
             resolve(null);
             return;
           }
+          try {
+            const bc = new BroadcastChannel('crawllead_data_sync');
+            bc.postMessage({ type: 'REFRESH_DATA' });
+            bc.close();
+          } catch (e) {}
+          try { localStorage.setItem('crawllead_last_update', Date.now().toString()); } catch (e) {}
           resolve(response.data);
         });
       });
@@ -471,59 +477,67 @@ function injectStyles() {
   style.textContent = `
     .lf-floating-wrap {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
+      bottom: 28px;
+      right: 28px;
       z-index: 999999;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 10px;
+      gap: 12px;
     }
     .lf-floating-btn {
-      background: linear-gradient(135deg, #0668E1, #00A4FF);
-      color: #fff;
+      background: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+      color: #ffffff;
       border-radius: 50px;
-      padding: 10px 18px;
-      font-size: 13px;
-      font-weight: 600;
+      padding: 12px 22px;
+      font-size: 13.5px;
+      font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 4px 20px rgba(6,104,225,0.4);
+      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4), 0 0 20px rgba(6, 182, 212, 0.3);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       user-select: none;
-      transition: transform 0.2s ease, opacity 0.2s ease;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(12px);
     }
     .lf-floating-btn:hover {
-      transform: scale(1.03);
-      opacity: 0.95;
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 15px 40px rgba(99, 102, 241, 0.5), 0 0 30px rgba(6, 182, 212, 0.5);
     }
     .lf-floating-btn:active {
-      transform: scale(0.97);
+      transform: translateY(0) scale(0.98);
     }
     .lf-popover {
       display: none;
-      width: 260px;
-      background: #1e293b;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 14px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+      width: 280px;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(25px);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(99, 102, 241, 0.25);
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
       color: #f8fafc;
       text-align: left;
+      animation: lfFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @keyframes lfFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .lf-popover.visible {
       display: flex;
     }
     .lf-popover-title {
       font-size: 11px;
-      font-weight: 600;
-      color: #94a3b8;
+      font-weight: 700;
+      color: #06b6d4;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
       margin-bottom: 2px;
     }
     .lf-input-group {
@@ -695,8 +709,13 @@ async function runFbCrawl(keyword, steps, isSinglePost, sendResponse = null) {
       console.log(`[LeadFinder] Bước ${currentStep}: +${newCount} mới, tổng ${allPosts.length}`);
 
       if (currentStep < maxSteps) {
-        window.scrollBy(0, 1200);
-        setTimeout(runStep, 3000);
+        // Giả lập người dùng cuộn ngẫu nhiên (800px - 1400px)
+        const randomScroll = Math.floor(Math.random() * 600) + 800;
+        window.scrollBy(0, randomScroll);
+        
+        // Giả lập đọc tin nhắn / delay ngẫu nhiên (3s - 6s) chống Checkpoint / Captcha
+        const randomDelay = Math.floor(Math.random() * 3000) + 3000;
+        setTimeout(runStep, randomDelay);
       } else {
         if (allPosts.length === 0) {
           const kw = keyword ? `chứa "${keyword}"` : "";

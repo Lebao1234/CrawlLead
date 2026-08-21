@@ -202,8 +202,30 @@ function extractProfileFromPage() {
 
     if (!company) company = "Chưa có";
 
+    // === NHẬN DIỆN KHUNG ẢNH / HỒ SƠ OPEN TO WORK ===
+    let isOpenToWork = false;
+    const imgBadges = document.querySelectorAll("img[alt*='Open to work'], img[src*='open-to-work'], [aria-label*='Open to work'], [data-test-photo*='open-to-work']");
+    if (imgBadges.length > 0) isOpenToWork = true;
+
+    if (!isOpenToWork) {
+      const otwCards = document.querySelectorAll(".pv-open-to-work-card, [componentkey*='OpenToWork'], section[class*='open-to-work']");
+      if (otwCards.length > 0) isOpenToWork = true;
+    }
+
+    if (!isOpenToWork && position) {
+      if (position.match(/open\s*to\s*work|open\s*for\s*work|seeking\s*opportunit|looking\s*for\s*job/i)) {
+        isOpenToWork = true;
+      }
+    }
+
+    if (isOpenToWork) {
+      if (!position.match(/open\s*to\s*work/i)) {
+        position = position ? `[Open To Work] ${position}` : "Open To Work";
+      }
+    }
+
     // Log tổng hợp để kiểm tra
-    console.log("[LeadFinder] Extracted:", { name, position, company, location });
+    console.log("[LeadFinder] Extracted:", { name, position, company, location, isOpenToWork });
 
     let email = "";
     const emailEl = document.querySelector("a[href^='mailto:']");
@@ -500,6 +522,15 @@ function parseLeadFromText(raw, linkedin_url) {
     }
   }
 
+  // Tự động kiểm tra từ khóa Open To Work trong toàn bộ nội dung thẻ tìm kiếm
+  const fullText = (raw || "").toLowerCase();
+  const isOpenToWork = fullText.includes("open to work") || fullText.includes("open for work") || fullText.includes("#opentowork") || fullText.includes("seeking opportunities");
+  if (isOpenToWork) {
+    if (!position.match(/open\s*to\s*work/i)) {
+      position = position ? `[Open To Work] ${position}` : "Open To Work";
+    }
+  }
+
   // company để trống — sẽ lấy khi crawl profile với email
   return { name, position, company: "", location, email: "", linkedin_url };
 }
@@ -599,6 +630,12 @@ async function sendLeads(leads) {
               safeResolve(null);
               return;
             }
+            try {
+              const bc = new BroadcastChannel('crawllead_data_sync');
+              bc.postMessage({ type: 'REFRESH_DATA' });
+              bc.close();
+            } catch (e) {}
+            try { localStorage.setItem('crawllead_last_update', Date.now().toString()); } catch (e) {}
             safeResolve(response.data);
           });
         } catch (innerErr) {
@@ -700,61 +737,85 @@ function injectStyles() {
   style.textContent = `
     .lf-floating-wrap {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
+      bottom: 28px;
+      right: 28px;
       z-index: 999999;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 10px;
+      gap: 12px;
     }
     .lf-floating-btn {
-      background: linear-gradient(135deg, #4f8ef7, #2dd4bf);
-      color: #fff;
+      background: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+      color: #ffffff;
       border-radius: 50px;
-      padding: 10px 18px;
-      font-size: 13px;
-      font-weight: 600;
+      padding: 12px 22px;
+      font-size: 13.5px;
+      font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 4px 20px rgba(79,142,247,0.4);
+      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4), 0 0 20px rgba(6, 182, 212, 0.3);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       user-select: none;
-      transition: transform 0.2s ease, opacity 0.2s ease;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(12px);
     }
     .lf-floating-btn:hover {
-      transform: scale(1.03);
-      opacity: 0.95;
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 15px 40px rgba(99, 102, 241, 0.5), 0 0 30px rgba(6, 182, 212, 0.5);
     }
     .lf-floating-btn:active {
-      transform: scale(0.97);
+      transform: translateY(0) scale(0.98);
     }
     .lf-popover {
       display: none;
-      width: 240px;
-      background: #1e293b;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+      width: 280px;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(25px);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 16px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(99, 102, 241, 0.25);
       flex-direction: column;
       overflow: hidden;
       color: #f8fafc;
-      font-size: 12px;
+      font-size: 13px;
       text-align: left;
+      animation: lfFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @keyframes lfFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .lf-popover.visible {
       display: flex;
     }
+    .lf-popover-header {
+      padding: 14px 16px 8px 16px;
+      font-size: 11px;
+      color: #06b6d4;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
     .lf-popover-item {
       padding: 12px 16px;
       cursor: pointer;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      transition: background 0.15s;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .lf-popover-item:hover {
-      background: rgba(255,255,255,0.05);
+      background: rgba(99, 102, 241, 0.15);
+      color: #06b6d4 !important;
+      padding-left: 20px;
     }
     .lf-popover-item:last-child {
       border-bottom: none;
@@ -812,13 +873,13 @@ function injectFloatingButton() {
     document.getElementById("lf-btn-basic").addEventListener("click", async (e) => {
       e.stopPropagation();
       menu.classList.remove("visible");
-      await crawlSearch(false);
+      await startCrawlingSequence(false);
     });
 
     document.getElementById("lf-btn-email").addEventListener("click", async (e) => {
       e.stopPropagation();
       menu.classList.remove("visible");
-      await crawlSearch(true);
+      await startCrawlingSequence(true);
     });
 
     document.addEventListener("click", e => {
@@ -913,7 +974,7 @@ async function crawlProfile() {
           ".artdeco-modal__dismiss"
         );
         if (closeBtn) {
-          closeBtn.click();
+        closeBtn.click();
         } else {
           document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
         }
@@ -937,33 +998,154 @@ async function crawlProfile() {
   }
 }
 
-/**
- * Thực thi lệnh Crawl trên trang Tìm kiếm.
- * Nếu chọn withEmail = true, tool sẽ mở ngầm (background) từng profile để lấy email, do đó sẽ chậm hơn.
- */
-async function crawlSearch(withEmail) {
+function isQualityLead(lead) {
+  if (!lead) return false;
+  const name = (lead.name || "").trim();
+  if (!name || name.length < 2) return false;
+  if (name.match(/thông báo|notification|tin nhắn|messaging|trang chủ|home|việc làm|jobs|tìm kiếm|search|linkedin/i)) return false;
+
+  const hasEmail = !!(lead.email && lead.email !== "Chưa có");
+  const hasPhone = !!(lead.phone && lead.phone !== "Chưa có");
+  const hasUrl = !!(lead.linkedin_url && lead.linkedin_url.includes("linkedin.com/in/"));
+  const hasCompPos = !!(lead.company && lead.company !== "Chưa có" && lead.position && lead.position !== "Chưa có");
+
+  return hasEmail || hasPhone || hasUrl || hasCompPos;
+}
+
+async function sendLeads(leads) {
+  const qualityLeads = (leads || []).filter(isQualityLead);
+  if (qualityLeads.length === 0) {
+    console.log("[LeadFinder] Bỏ qua gửi do không có lead nào đạt tiêu chuẩn chất lượng (Quality Filter)");
+    return { added: 0, duplicates: 0 };
+  }
+
+  return new Promise((resolve) => {
+    let resolved = false;
+    
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        console.warn("[LeadFinder] sendLeads timed out after 15s");
+        resolve(null);
+      }
+    }, 15000);
+
+    const safeResolve = (val) => {
+      clearTimeout(timer);
+      if (!resolved) {
+        resolved = true;
+        resolve(val);
+      }
+    };
+
+    try {
+      if (!chrome?.storage?.local || !chrome?.runtime?.sendMessage) {
+        console.error("[LeadFinder] Extension context đã mất — hãy refresh trang (F5)");
+        safeResolve(null);
+        return;
+      }
+
+      chrome.storage.local.get(['jwt_token'], (res) => {
+        try {
+          if (chrome.runtime.lastError) {
+            console.error("[LeadFinder] Extension đã reload — hãy refresh trang (F5)");
+            safeResolve(null);
+            return;
+          }
+          const token = res.jwt_token || "";
+          chrome.runtime.sendMessage({
+            action: "fetch_api",
+            url: `${BACKEND_URL}api/leads`,
+            options: {
+              method: "POST",
+              headers: { 
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token
+              },
+              body: JSON.stringify(qualityLeads)
+            }
+          }, (response) => {
+            if (chrome.runtime.lastError || !response) {
+              console.error("[LeadFinder] Backend unreachable or communication error");
+              safeResolve(null);
+              return;
+            }
+            if (!response.ok) {
+              if (response.status === 401) {
+                console.error("[LeadFinder] Unauthorized. Please login from the extension popup.");
+              } else {
+                console.error("[LeadFinder] Backend error:", response.error || response.status);
+              }
+              safeResolve(null);
+              return;
+            }
+            try {
+              const bc = new BroadcastChannel('crawllead_data_sync');
+              bc.postMessage({ type: 'REFRESH_DATA' });
+              bc.close();
+            } catch (e) {}
+            try { localStorage.setItem('crawllead_last_update', Date.now().toString()); } catch (e) {}
+            safeResolve(response.data);
+          });
+        } catch (innerErr) {
+          console.error("[LeadFinder] Error inside storage callback of sendLeads:", innerErr);
+          safeResolve(null);
+        }
+      });
+    } catch (e) {
+      console.error("[LeadFinder] Error starting sendLeads:", e);
+      safeResolve(null);
+    }
+  });
+}
+
+async function startCrawlingSequence(withEmail = false) {
+  if (isCrawling) return;
   isCrawling = true;
+
   const inner = document.getElementById("lf-inner");
+  if (!inner) return;
+
+  const currentUrl = window.location.href;
+
+  if (currentUrl.includes("/in/")) {
+    inner.textContent = "⏳ Đang cào Profile...";
+    const lead = extractProfileFromPage();
+    if (withEmail && (!lead.email || !lead.phone)) {
+      const contactInfo = await getContactDetailsFromContactInfo();
+      if (contactInfo.email) lead.email = contactInfo.email;
+      if (contactInfo.phone) lead.phone = contactInfo.phone;
+    }
+    const result = await sendLeads([lead]);
+    inner.textContent = result ? `✓ Đã lưu (${result.added} mới, ${result.duplicates} trùng)` : "❌ Lỗi Backend";
+    setTimeout(() => { inner.textContent = getButtonLabel(); isCrawling = false; }, 3000);
+    return;
+  }
+
+  inner.textContent = "🔍 Đang tìm leads...";
   let leads = extractSearchResults();
-
-  // Giới hạn ngẫu nhiên từ 10 - 15 account
-  const limit = Math.floor(Math.random() * 6) + 10;
-  if (leads.length > limit) leads = leads.slice(0, limit);
-
-  if (!withEmail) {
-    inner.textContent = "⏳ Đang crawl...";
-    const result = await sendLeads(leads);
-    inner.textContent = result ? `✓ ${result.added} leads, ${result.duplicates} trùng` : "❌ Backend offline";
+  if (!leads || leads.length === 0) {
+    inner.textContent = "❌ Không thấy lead";
     setTimeout(() => { inner.textContent = getButtonLabel(); isCrawling = false; }, 2000);
     return;
   }
 
-  // Crawl đầy đủ: mở từng profile lấy company + email
+  const limit = Math.floor(Math.random() * 6) + 10;
+  if (leads.length > limit) leads = leads.slice(0, limit);
+
+  if (!withEmail) {
+    inner.textContent = "⏳ Đang lưu batch...";
+    const result = await sendLeads(leads);
+    inner.textContent = result ? `✓ ${result.added} leads mới, ${result.duplicates} trùng` : "❌ Lỗi Backend";
+    setTimeout(() => { inner.textContent = getButtonLabel(); isCrawling = false; }, 2000);
+    return;
+  }
+
   for (let i = 0; i < leads.length; i++) {
     if (!isCrawling) {
       inner.textContent = `🛑 Đã dừng ở ${i}/${leads.length}`;
       setTimeout(() => { inner.textContent = getButtonLabel(); }, 3000);
-      return;
+      break;
     }
     
     const lead = leads[i];
@@ -972,7 +1154,6 @@ async function crawlSearch(withEmail) {
     try {
       await new Promise((resolve) => {
         let settled = false;
-
         const done = (response) => {
           if (settled) return;
           settled = true;
@@ -999,21 +1180,20 @@ async function crawlSearch(withEmail) {
           resolve();
         }
 
-        setTimeout(() => done(null), 35000); // Tăng lên 35s vì Chrome bóp băng thông tab ngầm
+        setTimeout(() => done(null), 35000);
       });
     } catch(e) {}
     
-    if (!isCrawling) break; // Check again after await
-    await sendLeads([lead]);
     
-    // Tăng thời gian chờ và ngẫu nhiên hóa (random delay từ 6 đến 12 giây)
-    // nhằm giảm tải tần suất request dồn dập, hạn chế tối đa nguy cơ bị LinkedIn block tài khoản
-    const crawlDelay = Math.floor(Math.random() * 6000) + 6000;
+    const crawlDelay = Math.floor(Math.random() * 2000) + 2000;
     await new Promise(r => setTimeout(r, crawlDelay));
   }
 
+  inner.textContent = "⏳ Đang lưu toàn bộ batch...";
+  const batchResult = await sendLeads(leads);
+
   isCrawling = false;
-  inner.textContent = `✓ Xong ${leads.length} leads!`;
+  inner.textContent = batchResult ? `✓ Đã lưu (${batchResult.added} mới, ${batchResult.duplicates} trùng)!` : `✓ Hoàn tất ${leads.length} leads!`;
   setTimeout(() => { inner.textContent = getButtonLabel(); }, 5000);
 }
 

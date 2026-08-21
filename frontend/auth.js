@@ -41,14 +41,14 @@ function showMsg(msg, type = "success") {
   }
 }
 
-const API_URL = CONFIG.API_URL + "/";
+const API_URL = CONFIG.API_URL + "/api";
 
 async function submitAuth() {
   const user = document.getElementById('authUsername').value.trim();
   const pass = document.getElementById('authPassword').value;
   if (!user || !pass) return showMsg('Please enter username and password', 'error');
   
-  const endpoint = isLoginMode ? '/api/login' : '/api/register';
+  const endpoint = isLoginMode ? '/login' : '/register';
   try {
     const r = await originalFetch(`${API_URL}${endpoint}`, {
       method: 'POST',
