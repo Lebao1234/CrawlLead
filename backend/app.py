@@ -42,12 +42,16 @@ default_origins = [
     "http://localhost:5000",
     "http://127.0.0.1:5000",
     "http://localhost:3000",
-    "https://crawllead.onrender.com"
+    "https://crawllead.onrender.com",
+    "https://crawllead.onrender.com/"
 ]
 combined_origins = list(set(default_origins + allowed_list))
 
 # Cấu hình CORS bảo mật: Giới hạn Origin cho Extension và Web Dashboard
-CORS(app, origins=combined_origins + [re.compile(r"^chrome-extension://.*$")], supports_credentials=True)
+CORS(app, origins=combined_origins + [
+    re.compile(r"^chrome-extension://.*$"),
+    re.compile(r"^https://.*\.onrender\.com/?$")
+], supports_credentials=True)
 
 # Đăng ký các Modular Blueprints
 app.register_blueprint(auth_bp)

@@ -3,7 +3,7 @@ if (typeof CONFIG === "undefined") {
   window.CONFIG = {
     // Set this to true to force localhost, false to force production, 
     // or null to automatically detect based on window.location
-    USE_LOCALHOST: null,
+    USE_LOCALHOST: false,
 
     API_LOCAL: "http://localhost:5000",
     API_PROD: "https://crawllead.onrender.com",
@@ -16,9 +16,10 @@ if (typeof CONFIG === "undefined") {
         return this.API_PROD;
       }
 
-      // Auto-detect: if dashboard is running on localhost/127.0.0.1, connect to local API
+      // Auto-detect: if dashboard is running on localhost:5000 (served by local Flask backend), use local API
       const hostname = window.location.hostname;
-      if (hostname === "localhost" || hostname === "127.0.0.1" || hostname.startsWith("192.168.")) {
+      const port = window.location.port;
+      if ((hostname === "localhost" || hostname === "127.0.0.1") && port === "5000") {
         return this.API_LOCAL;
       }
       return this.API_PROD;

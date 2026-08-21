@@ -121,7 +121,7 @@ def import_fb(current_user):
     file = request.files['file']
     if not file.filename.endswith(('.csv', '.xlsx')): return jsonify({"error": "Invalid file type"}), 400
     try:
-        data = parse_import_file(file, file.filename, {v: k for k, v in zip(FB_EXPORT_HEADERS, ["author", "group_name", "content_snippet", "post_url", "created_at", "crawled_by"])})
+        data = parse_import_file(file, file.filename, {v: k for k, v in zip(FB_EXPORT_HEADERS, ["author", "group_name", "content_snippet", "email", "phone", "post_url", "created_at", "crawled_by"])})
         added, dupes = 0, 0
         for post in data:
             post["crawled_by"] = current_user["username"]

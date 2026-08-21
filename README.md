@@ -172,6 +172,7 @@ docker-compose up -d --build
 | `DELETE` | `/api/leads/:id` | Xóa lead |
 | `POST` | `/api/leads/:id/verify` | Verify lead |
 | `POST` | `/api/leads/clear` | Xóa tất cả |
+| `GET` | `/api/export/xlsx` | Download Excel (.xlsx) |
 | `GET` | `/api/export/csv` | Download CSV |
 | `GET` | `/api/stats` | Thống kê tổng quan |
 

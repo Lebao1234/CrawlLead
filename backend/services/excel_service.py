@@ -30,7 +30,7 @@ EXPORT_HEADERS = [
     "Người thu thập"
 ]
 
-FB_EXPORT_HEADERS = ["Author", "Group", "Content Snippet", "Link", "Date", "Crawled By"]
+FB_EXPORT_HEADERS = ["Author", "Group", "Content Snippet", "Email", "Phone", "Link", "Date", "Crawled By"]
 LK_EXPORT_HEADERS = ["Author", "Headline", "Content Snippet", "Type", "Reactions", "Link", "Date", "Crawled By"]
 
 def _format_lead_row(lead):
@@ -71,7 +71,16 @@ def _format_lead_row(lead):
     ]
 
 def _format_fb_row(p):
-    return [_safe_str(p.get("author")), _safe_str(p.get("group_name")), _safe_str(p.get("content_snippet")), _safe_str(p.get("post_url")), _safe_str(p.get("created_at")), _safe_str(p.get("crawled_by"))]
+    return [
+        _safe_str(p.get("author")),
+        _safe_str(p.get("group_name")),
+        _safe_str(p.get("content_snippet")),
+        _safe_str(p.get("email")),
+        _safe_str(p.get("phone")),
+        _safe_str(p.get("post_url")),
+        _safe_str(p.get("created_at")),
+        _safe_str(p.get("crawled_by"))
+    ]
 
 def _format_lk_row(p):
     return [_safe_str(p.get("author")), _safe_str(p.get("author_headline")), _safe_str(p.get("content_snippet")), _safe_str(p.get("post_type")), p.get("reactions_count") or 0, _safe_str(p.get("post_url")), _safe_str(p.get("created_at")), _safe_str(p.get("crawled_by"))]

@@ -6,3 +6,4 @@ backend/logs/
 *.log
 .venv/
 venv/
+*.zip

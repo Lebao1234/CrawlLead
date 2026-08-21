@@ -195,7 +195,7 @@
               <p class="text-muted small mb-0" data-i18n="dash.desc">Tổng quan về danh sách leads cào được, tỷ lệ xác minh và hoạt động người cào.</p>
             </div>
             <div class="d-flex gap-2">
-              <button class="btn btn-gradient btn-sm px-3.5 py-2" onclick="exportCSV()" data-i18n="btn.export">⚡ Xuất file CSV</button>
+              <button class="btn btn-gradient btn-sm px-3.5 py-2" onclick="exportXLSX()" data-i18n="btn.export">⚡ Xuất file Excel (.xlsx)</button>
             </div>
           </div>
 
@@ -321,7 +321,7 @@
               <button class="btn btn-glass btn-sm" onclick="clearAll()" style="color:var(--red) !important; border-color:rgba(239,68,68,0.3) !important;" title="Xóa tất cả danh sách LinkedIn leads">
                 🗑 Xóa hết danh sách
               </button>
-              <button class="btn btn-gradient btn-sm" onclick="exportCSV()" data-i18n="btn.export">Xuất file CSV</button>
+              <button class="btn btn-gradient btn-sm" onclick="exportXLSXFiltered('filterCrawledBy')" data-i18n="btn.export">Xuất file Excel (.xlsx)</button>
             </div>
           </div>
 
@@ -375,6 +375,7 @@
               <button class="btn btn-glass btn-sm" onclick="clearAllFb()" style="color:var(--red) !important; border-color:rgba(239,68,68,0.3) !important;">
                 🗑 Xóa hết danh sách
               </button>
+              <button class="btn btn-gradient btn-sm" onclick="exportFbXLSX()">Xuất file Excel (.xlsx)</button>
             </div>
           </div>
           <div class="glass-panel p-4 rounded-lg">
@@ -386,6 +387,8 @@
                     <th data-i18n="th.author">Tác giả</th>
                     <th data-i18n="th.group">Nhóm</th>
                     <th data-i18n="th.content">Nội dung</th>
+                    <th data-i18n="th.email">Email</th>
+                    <th data-i18n="th.phone">Số điện thoại</th>
                     <th data-i18n="th.link">Link bài viết</th>
                     <th data-i18n="th.date">Ngày cào</th>
                     <th data-i18n="th.crawled_by">Người cào</th>
@@ -409,6 +412,7 @@
               <button class="btn btn-glass btn-sm" onclick="clearAllLkPosts()" style="color:var(--red) !important; border-color:rgba(239,68,68,0.3) !important;">
                 🗑 Xóa hết danh sách
               </button>
+              <button class="btn btn-gradient btn-sm" onclick="exportLkXLSX()">Xuất file Excel (.xlsx)</button>
             </div>
           </div>
           <div class="glass-panel p-4 rounded-lg">

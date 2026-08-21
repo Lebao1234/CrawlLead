@@ -71,7 +71,7 @@ const I18N_DICTIONARY = {
     "status.offline": "Backend Mất Kết Nối",
     "status.checking": "Đang kiểm tra…",
     "btn.signout": "Đăng xuất",
-    "btn.export": "⚡ Xuất file CSV",
+    "btn.export": "⚡ Xuất file Excel (.xlsx)",
     "btn.delete": "Xóa lead",
     "btn.verify": "Xác minh",
     "btn.view_all": "Xem Tất Cả →",
@@ -129,7 +129,7 @@ const I18N_DICTIONARY = {
     "status.offline": "Backend Offline",
     "status.checking": "Checking…",
     "btn.signout": "Sign Out",
-    "btn.export": "⚡ Export CSV",
+    "btn.export": "⚡ Export Excel (.xlsx)",
     "btn.delete": "Delete Lead",
     "btn.verify": "Verify",
     "btn.view_all": "View All →",
@@ -424,8 +424,26 @@ function setBackendOnline(ok) {
 }
 
 async function checkBackend() {
-  try { await fetch(`${API()}/api/stats`); setBackendOnline(true); }
-  catch { setBackendOnline(false); }
+  try {
+    const res = await fetch(`${API()}/api/stats`, { signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      setBackendOnline(true);
+      return;
+    }
+    setBackendOnline(false);
+  } catch {
+    // If current API failed, try fallback to Render cloud
+    if (API() !== "https://crawllead.onrender.com") {
+      try {
+        const resProd = await fetch("https://crawllead.onrender.com/api/stats", { signal: AbortSignal.timeout(8000) });
+        if (resProd.ok) {
+          setBackendOnline(true);
+          return;
+        }
+      } catch {}
+    }
+    setBackendOnline(false);
+  }
 }
 
 // ─── Boolean Search Engine ────────────────────────────────────
@@ -564,7 +582,7 @@ function leadToSearchText(l) {
 // Helper: build a searchable string from a facebook post (with memoization)
 function fbPostToSearchText(p) {
   if (p._searchText !== undefined) return p._searchText;
-  p._searchText = [p.author, p.group_name, p.content, p.content_snippet].map(v => removeVietnameseTones((v || '').toLowerCase())).join(' ');
+  p._searchText = [p.author, p.group_name, p.content, p.content_snippet, p.email, p.phone].map(v => removeVietnameseTones((v || '').toLowerCase())).join(' ');
   return p._searchText;
 }
 
@@ -762,7 +780,7 @@ async function fetchFbPosts(force = false) {
 }
 
 function renderFbPage() {
-  const tbody = document.getElementById("facebookTable");
+  const tbody = document.getElementById("fbTable") || document.querySelector("#facebookTable tbody") || document.getElementById("facebookTable");
   if (!tbody) return;
   const q = searchQuery.toLowerCase();
   let posts = allFbPosts;
@@ -771,14 +789,16 @@ function renderFbPage() {
     if (ast) posts = posts.filter(p => evaluateBooleanAST(ast, fbPostToSearchText(p)));
   }
 
-  if (!posts.length) { tbody.innerHTML = `<tr><td colspan="7"><div class="empty">Không tìm thấy bài viết Facebook nào.</div></td></tr>`; updateBulkDeleteBtn(); return; }
+  if (!posts.length) { tbody.innerHTML = `<tr><td colspan="10"><div class="empty">Không tìm thấy bài viết Facebook nào.</div></td></tr>`; updateBulkDeleteBtn(); return; }
 
   tbody.innerHTML = posts.map((p, i) => `
     <tr>
       <td><input type="checkbox" class="row-checkbox" value="${allFbPosts.indexOf(p)}" onchange="updateBulkDeleteBtn()"></td>
       <td><div class="lead-name">${esc(p.author || "—")}</div></td>
       <td style="font-size:12px">${esc(p.group_name || "—")}</td>
-      <td style="font-size:12px;color:var(--muted)">${esc(p.content_snippet || "—")}</td>
+      <td style="font-size:12px;color:var(--muted);max-width:260px;" title="${esc(p.content_snippet || '')}">${esc(p.content_snippet || "—")}</td>
+      <td>${p.email ? `<a href="mailto:${esc(p.email)}" style="font-size:12px;color:var(--accent);text-decoration:none;font-weight:500">📧 ${esc(p.email)}</a>` : `<span style="color:var(--muted);font-size:12px">—</span>`}</td>
+      <td>${p.phone ? `<span style="font-size:12px;color:var(--green);font-weight:500">📞 ${esc(p.phone)}</span>` : `<span style="color:var(--muted);font-size:12px">—</span>`}</td>
       <td style="font-size:11px">${p.post_url ? `<a href="${esc(p.post_url)}" target="_blank" style="color:var(--accent);text-decoration:none">Xem ↗</a>` : "—"}</td>
       <td style="font-size:11px;color:var(--muted)">${(p.created_at || "").slice(0, 10) || "—"}</td>
       <td><span class="tag">${esc(p.crawled_by || "—")}</span></td>

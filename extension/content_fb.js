@@ -34,6 +34,44 @@ function matchesKeyword(fullText, cleanKeyword) {
   });
 }
 
+function extractEmailsFromText(text) {
+  if (!text) return [];
+  const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
+  const matches = text.match(emailRegex) || [];
+  const validEmails = [];
+  const junkExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'];
+  
+  for (let em of matches) {
+    em = em.trim().replace(/[.,;:)\s]+$/, '').replace(/^[(\s]+/, '');
+    const lower = em.toLowerCase();
+    if (junkExtensions.some(ext => lower.endsWith(ext))) continue;
+    if (lower.includes('example.com') || lower.includes('domain.com') || lower.includes('email.com')) continue;
+    if (lower.length > 5 && !validEmails.includes(em)) {
+      validEmails.push(em);
+    }
+  }
+  return validEmails;
+}
+
+function extractPhonesFromText(text) {
+  if (!text) return [];
+  // Bắt số điện thoại VN phổ biến: 09x, 08x, 07x, 05x, 03x, (+84), 84, cố định 02x
+  const phoneRegex = /(?:(?:\+84|84|0)(?:[\s.-]?\d){8,10}\b)/g;
+  const matches = text.match(phoneRegex) || [];
+  const validPhones = [];
+  
+  for (let ph of matches) {
+    const clean = ph.trim().replace(/[.,;:)\s]+$/, '').replace(/^[(\s]+/, '');
+    const digitsOnly = clean.replace(/\D/g, '');
+    if (digitsOnly.length >= 10 && digitsOnly.length <= 11) {
+      if (!validPhones.includes(clean)) {
+        validPhones.push(clean);
+      }
+    }
+  }
+  return validPhones;
+}
+
 
 
 function extractFromFeedItem(el, groupName, cleanKeyword, idx) {
@@ -350,12 +388,29 @@ function extractFromFeedItem(el, groupName, cleanKeyword, idx) {
     }
   }
 
-  console.log(`[LeadFinder] ✅ MATCH #${idx}: author="${author}" title="${title.substring(0, 60)}..."`);
+  // ── Trích xuất Email & Số điện thoại từ nội dung bài viết / DOM ──
+  const mailtoLinks = el.querySelectorAll('a[href^="mailto:"]');
+  const emailsFromLinks = Array.from(mailtoLinks).map(a => a.href.replace(/^mailto:/i, '').split('?')[0].trim()).filter(Boolean);
+  const telLinks = el.querySelectorAll('a[href^="tel:"]');
+  const phonesFromLinks = Array.from(telLinks).map(a => a.href.replace(/^tel:/i, '').trim()).filter(Boolean);
+
+  const emailsFromText = extractEmailsFromText(rawText + "\n" + cleanText);
+  const phonesFromText = extractPhonesFromText(rawText + "\n" + cleanText);
+
+  const allEmails = [...new Set([...emailsFromLinks, ...emailsFromText])];
+  const allPhones = [...new Set([...phonesFromLinks, ...phonesFromText])];
+
+  const email = allEmails.join(", ");
+  const phone = allPhones.join(", ");
+
+  console.log(`[LeadFinder] ✅ MATCH #${idx}: author="${author}" email="${email}" phone="${phone}" title="${title.substring(0, 60)}..."`);
   
   return {
     author,
     group_name: finalGroupName,
     content_snippet: title,
+    email,
+    phone,
     post_url: postUrl,
   };
 }

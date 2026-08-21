@@ -3,13 +3,24 @@ const BACKEND = CONFIG.API_URL;
 // Kiểm tra xem Backend Server có đang chạy không bằng cách gọi API /api/stats
 async function checkBackend() {
   try {
-    const res = await fetch(`${BACKEND}/api/stats`, { signal: AbortSignal.timeout(2000) });
+    const res = await fetch(`${BACKEND}/api/stats`, { signal: AbortSignal.timeout(8000) });
     const data = await res.json();
     document.getElementById("backendStatus").textContent = "✓ Online";
     document.getElementById("backendStatus").className = "status-val green";
     document.getElementById("totalLeads").textContent = data.total;
     return true;
   } catch {
+    // If current backend failed and wasn't production, try fallback to Render cloud
+    if (BACKEND !== "https://crawllead.onrender.com") {
+      try {
+        const resProd = await fetch(`https://crawllead.onrender.com/api/stats`, { signal: AbortSignal.timeout(8000) });
+        const dataProd = await resProd.json();
+        document.getElementById("backendStatus").textContent = "✓ Online (Cloud)";
+        document.getElementById("backendStatus").className = "status-val green";
+        document.getElementById("totalLeads").textContent = dataProd.total;
+        return true;
+      } catch {}
+    }
     document.getElementById("backendStatus").textContent = "✗ Offline";
     document.getElementById("backendStatus").className = "status-val red";
     return false;
@@ -128,7 +139,10 @@ document.getElementById("openDashboard").addEventListener("click", () => {
 });
 
 document.getElementById("exportBtn").addEventListener("click", () => {
-  chrome.tabs.create({ url: `${BACKEND}/api/export/csv` });
+  chrome.storage.local.get(['jwt_token'], (res) => {
+    const token = res.jwt_token || "";
+    chrome.tabs.create({ url: `${BACKEND}/api/export/xlsx?token=${token}` });
+  });
 });
 
 // Removed clearBtn since it's destructive and better kept on the dashboard
